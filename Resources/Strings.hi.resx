@@ -1,0 +1,126 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AppTitle" xml:space="preserve">
+    <value>Cursor Quota</value>
+  </data>
+  <data name="LanguageLabel" xml:space="preserve">
+    <value>भाषा</value>
+  </data>
+  <data name="PrecisionLabel" xml:space="preserve">
+    <value>सटीकता</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>रीफ़्रेश</value>
+  </data>
+  <data name="Refreshing" xml:space="preserve">
+    <value>रीफ़्रेश हो रहा है...</value>
+  </data>
+  <data name="TotalUsedLabel" xml:space="preserve">
+    <value>कुल उपयोग</value>
+  </data>
+  <data name="TotalRemainingFormat" xml:space="preserve">
+    <value>शेष: {0}</value>
+  </data>
+  <data name="QuotaResetInFormat" xml:space="preserve">
+    <value>कोटा रीसेट होने तक: {0}</value>
+  </data>
+  <data name="DailyTargetLabel" xml:space="preserve">
+    <value>दैनिक लक्ष्य</value>
+  </data>
+  <data name="PerDayFormat" xml:space="preserve">
+    <value>प्रति दिन {0}</value>
+  </data>
+  <data name="TodaySpentFormat" xml:space="preserve">
+    <value>आज खर्च हुआ: {0}</value>
+  </data>
+  <data name="TodayRemainingFormat" xml:space="preserve">
+    <value>आज शेष: {0}</value>
+  </data>
+  <data name="TodayPlanCompleted" xml:space="preserve">
+    <value>आज का लक्ष्य पूरा हो गया</value>
+  </data>
+  <data name="OverDailyTargetFormat" xml:space="preserve">
+    <value>+{0} लक्ष्य से अधिक</value>
+  </data>
+  <data name="CursorModelsLabel" xml:space="preserve">
+    <value>Cursor मॉडल</value>
+  </data>
+  <data name="UsedLabel" xml:space="preserve">
+    <value>उपयोग किया गया</value>
+  </data>
+  <data name="ApiLabel" xml:space="preserve">
+    <value>API</value>
+  </data>
+  <data name="PaceFormat" xml:space="preserve">
+    <value>गति: प्रति दिन {0}</value>
+  </data>
+  <data name="PaceBelowPlan" xml:space="preserve">
+    <value>गति लक्ष्य से कम है</value>
+  </data>
+  <data name="PaceOnPlan" xml:space="preserve">
+    <value>गति लक्ष्य के अनुरूप है</value>
+  </data>
+  <data name="PaceAbovePlan" xml:space="preserve">
+    <value>गति लक्ष्य से अधिक है</value>
+  </data>
+  <data name="LastUpdatedFormat" xml:space="preserve">
+    <value>अंतिम अपडेट: {0}</value>
+  </data>
+  <data name="Open" xml:space="preserve">
+    <value>खोलें</value>
+  </data>
+  <data name="RefreshNow" xml:space="preserve">
+    <value>अभी रीफ़्रेश करें</value>
+  </data>
+  <data name="Exit" xml:space="preserve">
+    <value>बंद करें</value>
+  </data>
+  <data name="LaunchWithWindows" xml:space="preserve">
+    <value>Windows के साथ शुरू करें</value>
+  </data>
+  <data name="UpdateFailedGeneric" xml:space="preserve">
+    <value>डेटा रीफ़्रेश नहीं हो सका</value>
+  </data>
+  <data name="AutostartChangeFailed" xml:space="preserve">
+    <value>ऑटोस्टार्ट नहीं बदला जा सका</value>
+  </data>
+  <data name="CursorAuthFailed" xml:space="preserve">
+    <value>Cursor प्राधिकरण प्राप्त नहीं हो सका। सुनिश्चित करें कि Cursor चल रहा है और आप साइन इन हैं।</value>
+  </data>
+  <data name="TodayPoolsDetailFormat" xml:space="preserve">
+    <value>आज: मॉडल {0}, API {1}</value>
+  </data>
+  <data name="ApiSpendFormat" xml:space="preserve">
+    <value>{0} में से {1}</value>
+  </data>
+  <data name="DaysPatternZero" xml:space="preserve">
+    <value>{0} दिन</value>
+  </data>
+  <data name="DaysPatternOne" xml:space="preserve">
+    <value>{0} दिन</value>
+  </data>
+  <data name="DaysPatternTwo" xml:space="preserve">
+    <value>{0} दिन</value>
+  </data>
+  <data name="DaysPatternFew" xml:space="preserve">
+    <value>{0} दिन</value>
+  </data>
+  <data name="DaysPatternMany" xml:space="preserve">
+    <value>{0} दिन</value>
+  </data>
+  <data name="DaysPatternOther" xml:space="preserve">
+    <value>{0} दिन</value>
+  </data>
+</root>

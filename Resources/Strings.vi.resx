@@ -1,0 +1,126 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AppTitle" xml:space="preserve">
+    <value>Cursor Quota</value>
+  </data>
+  <data name="LanguageLabel" xml:space="preserve">
+    <value>Ngôn ngữ</value>
+  </data>
+  <data name="PrecisionLabel" xml:space="preserve">
+    <value>Độ chính xác</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>Làm mới</value>
+  </data>
+  <data name="Refreshing" xml:space="preserve">
+    <value>Đang làm mới...</value>
+  </data>
+  <data name="TotalUsedLabel" xml:space="preserve">
+    <value>Đã dùng tổng cộng</value>
+  </data>
+  <data name="TotalRemainingFormat" xml:space="preserve">
+    <value>Còn lại: {0}</value>
+  </data>
+  <data name="QuotaResetInFormat" xml:space="preserve">
+    <value>Đến khi làm mới hạn mức: {0}</value>
+  </data>
+  <data name="DailyTargetLabel" xml:space="preserve">
+    <value>Mục tiêu hằng ngày</value>
+  </data>
+  <data name="PerDayFormat" xml:space="preserve">
+    <value>{0} mỗi ngày</value>
+  </data>
+  <data name="TodaySpentFormat" xml:space="preserve">
+    <value>Đã dùng hôm nay: {0}</value>
+  </data>
+  <data name="TodayRemainingFormat" xml:space="preserve">
+    <value>Còn lại hôm nay: {0}</value>
+  </data>
+  <data name="TodayPlanCompleted" xml:space="preserve">
+    <value>Đã đạt mục tiêu hôm nay</value>
+  </data>
+  <data name="OverDailyTargetFormat" xml:space="preserve">
+    <value>+{0} vượt mục tiêu</value>
+  </data>
+  <data name="CursorModelsLabel" xml:space="preserve">
+    <value>Mô hình Cursor</value>
+  </data>
+  <data name="UsedLabel" xml:space="preserve">
+    <value>đã dùng</value>
+  </data>
+  <data name="ApiLabel" xml:space="preserve">
+    <value>API</value>
+  </data>
+  <data name="PaceFormat" xml:space="preserve">
+    <value>Nhịp độ: {0} mỗi ngày</value>
+  </data>
+  <data name="PaceBelowPlan" xml:space="preserve">
+    <value>Nhịp độ thấp hơn kế hoạch</value>
+  </data>
+  <data name="PaceOnPlan" xml:space="preserve">
+    <value>Nhịp độ đúng kế hoạch</value>
+  </data>
+  <data name="PaceAbovePlan" xml:space="preserve">
+    <value>Nhịp độ cao hơn kế hoạch</value>
+  </data>
+  <data name="LastUpdatedFormat" xml:space="preserve">
+    <value>Cập nhật lần cuối: {0}</value>
+  </data>
+  <data name="Open" xml:space="preserve">
+    <value>Mở</value>
+  </data>
+  <data name="RefreshNow" xml:space="preserve">
+    <value>Làm mới ngay</value>
+  </data>
+  <data name="Exit" xml:space="preserve">
+    <value>Thoát</value>
+  </data>
+  <data name="LaunchWithWindows" xml:space="preserve">
+    <value>Khởi động cùng Windows</value>
+  </data>
+  <data name="UpdateFailedGeneric" xml:space="preserve">
+    <value>Không thể làm mới dữ liệu</value>
+  </data>
+  <data name="AutostartChangeFailed" xml:space="preserve">
+    <value>Không thể thay đổi khởi động cùng hệ thống</value>
+  </data>
+  <data name="CursorAuthFailed" xml:space="preserve">
+    <value>Không thể lấy quyền xác thực Cursor. Hãy đảm bảo Cursor đang chạy và bạn đã đăng nhập.</value>
+  </data>
+  <data name="TodayPoolsDetailFormat" xml:space="preserve">
+    <value>Hôm nay: model {0}, API {1}</value>
+  </data>
+  <data name="ApiSpendFormat" xml:space="preserve">
+    <value>{0} trên {1}</value>
+  </data>
+  <data name="DaysPatternZero" xml:space="preserve">
+    <value>{0} ngày</value>
+  </data>
+  <data name="DaysPatternOne" xml:space="preserve">
+    <value>{0} ngày</value>
+  </data>
+  <data name="DaysPatternTwo" xml:space="preserve">
+    <value>{0} ngày</value>
+  </data>
+  <data name="DaysPatternFew" xml:space="preserve">
+    <value>{0} ngày</value>
+  </data>
+  <data name="DaysPatternMany" xml:space="preserve">
+    <value>{0} ngày</value>
+  </data>
+  <data name="DaysPatternOther" xml:space="preserve">
+    <value>{0} ngày</value>
+  </data>
+</root>

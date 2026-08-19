@@ -1,0 +1,126 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AppTitle" xml:space="preserve">
+    <value>Cursor Quota</value>
+  </data>
+  <data name="LanguageLabel" xml:space="preserve">
+    <value>언어</value>
+  </data>
+  <data name="PrecisionLabel" xml:space="preserve">
+    <value>정밀도</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>새로 고침</value>
+  </data>
+  <data name="Refreshing" xml:space="preserve">
+    <value>새로 고치는 중...</value>
+  </data>
+  <data name="TotalUsedLabel" xml:space="preserve">
+    <value>총 사용량</value>
+  </data>
+  <data name="TotalRemainingFormat" xml:space="preserve">
+    <value>남음: {0}</value>
+  </data>
+  <data name="QuotaResetInFormat" xml:space="preserve">
+    <value>쿼터 재설정까지: {0}</value>
+  </data>
+  <data name="DailyTargetLabel" xml:space="preserve">
+    <value>일일 목표</value>
+  </data>
+  <data name="PerDayFormat" xml:space="preserve">
+    <value>하루 {0}</value>
+  </data>
+  <data name="TodaySpentFormat" xml:space="preserve">
+    <value>오늘 사용: {0}</value>
+  </data>
+  <data name="TodayRemainingFormat" xml:space="preserve">
+    <value>오늘 남음: {0}</value>
+  </data>
+  <data name="TodayPlanCompleted" xml:space="preserve">
+    <value>오늘 목표를 달성했습니다</value>
+  </data>
+  <data name="OverDailyTargetFormat" xml:space="preserve">
+    <value>+{0} 목표 초과</value>
+  </data>
+  <data name="CursorModelsLabel" xml:space="preserve">
+    <value>Cursor 모델</value>
+  </data>
+  <data name="UsedLabel" xml:space="preserve">
+    <value>사용됨</value>
+  </data>
+  <data name="ApiLabel" xml:space="preserve">
+    <value>API</value>
+  </data>
+  <data name="PaceFormat" xml:space="preserve">
+    <value>속도: 하루 {0}</value>
+  </data>
+  <data name="PaceBelowPlan" xml:space="preserve">
+    <value>속도가 목표보다 낮습니다</value>
+  </data>
+  <data name="PaceOnPlan" xml:space="preserve">
+    <value>속도가 목표에 맞습니다</value>
+  </data>
+  <data name="PaceAbovePlan" xml:space="preserve">
+    <value>속도가 목표보다 높습니다</value>
+  </data>
+  <data name="LastUpdatedFormat" xml:space="preserve">
+    <value>마지막 업데이트: {0}</value>
+  </data>
+  <data name="Open" xml:space="preserve">
+    <value>열기</value>
+  </data>
+  <data name="RefreshNow" xml:space="preserve">
+    <value>지금 새로 고침</value>
+  </data>
+  <data name="Exit" xml:space="preserve">
+    <value>종료</value>
+  </data>
+  <data name="LaunchWithWindows" xml:space="preserve">
+    <value>Windows와 함께 시작</value>
+  </data>
+  <data name="UpdateFailedGeneric" xml:space="preserve">
+    <value>데이터를 새로 고치지 못했습니다</value>
+  </data>
+  <data name="AutostartChangeFailed" xml:space="preserve">
+    <value>자동 시작 설정을 변경하지 못했습니다</value>
+  </data>
+  <data name="CursorAuthFailed" xml:space="preserve">
+    <value>Cursor 인증을 가져오지 못했습니다. Cursor가 실행 중이고 로그인되어 있는지 확인하세요.</value>
+  </data>
+  <data name="TodayPoolsDetailFormat" xml:space="preserve">
+    <value>오늘: 모델 {0}, API {1}</value>
+  </data>
+  <data name="ApiSpendFormat" xml:space="preserve">
+    <value>{0} / {1}</value>
+  </data>
+  <data name="DaysPatternZero" xml:space="preserve">
+    <value>{0}일</value>
+  </data>
+  <data name="DaysPatternOne" xml:space="preserve">
+    <value>{0}일</value>
+  </data>
+  <data name="DaysPatternTwo" xml:space="preserve">
+    <value>{0}일</value>
+  </data>
+  <data name="DaysPatternFew" xml:space="preserve">
+    <value>{0}일</value>
+  </data>
+  <data name="DaysPatternMany" xml:space="preserve">
+    <value>{0}일</value>
+  </data>
+  <data name="DaysPatternOther" xml:space="preserve">
+    <value>{0}일</value>
+  </data>
+</root>

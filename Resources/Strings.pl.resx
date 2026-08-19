@@ -1,0 +1,126 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AppTitle" xml:space="preserve">
+    <value>Cursor Quota</value>
+  </data>
+  <data name="LanguageLabel" xml:space="preserve">
+    <value>Język</value>
+  </data>
+  <data name="PrecisionLabel" xml:space="preserve">
+    <value>Dokładność</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>Odśwież</value>
+  </data>
+  <data name="Refreshing" xml:space="preserve">
+    <value>Odświeżanie...</value>
+  </data>
+  <data name="TotalUsedLabel" xml:space="preserve">
+    <value>Wykorzystano łącznie</value>
+  </data>
+  <data name="TotalRemainingFormat" xml:space="preserve">
+    <value>Pozostało: {0}</value>
+  </data>
+  <data name="QuotaResetInFormat" xml:space="preserve">
+    <value>Do odnowienia limitu: {0}</value>
+  </data>
+  <data name="DailyTargetLabel" xml:space="preserve">
+    <value>Cel dzienny</value>
+  </data>
+  <data name="PerDayFormat" xml:space="preserve">
+    <value>{0} dziennie</value>
+  </data>
+  <data name="TodaySpentFormat" xml:space="preserve">
+    <value>Zużyto dziś: {0}</value>
+  </data>
+  <data name="TodayRemainingFormat" xml:space="preserve">
+    <value>Pozostało dziś: {0}</value>
+  </data>
+  <data name="TodayPlanCompleted" xml:space="preserve">
+    <value>Dzisiejszy cel osiągnięty</value>
+  </data>
+  <data name="OverDailyTargetFormat" xml:space="preserve">
+    <value>+{0} ponad cel</value>
+  </data>
+  <data name="CursorModelsLabel" xml:space="preserve">
+    <value>Modele Cursor</value>
+  </data>
+  <data name="UsedLabel" xml:space="preserve">
+    <value>wykorzystano</value>
+  </data>
+  <data name="ApiLabel" xml:space="preserve">
+    <value>API</value>
+  </data>
+  <data name="PaceFormat" xml:space="preserve">
+    <value>Tempo: {0} dziennie</value>
+  </data>
+  <data name="PaceBelowPlan" xml:space="preserve">
+    <value>Tempo poniżej planu</value>
+  </data>
+  <data name="PaceOnPlan" xml:space="preserve">
+    <value>Tempo zgodne z planem</value>
+  </data>
+  <data name="PaceAbovePlan" xml:space="preserve">
+    <value>Tempo powyżej planu</value>
+  </data>
+  <data name="LastUpdatedFormat" xml:space="preserve">
+    <value>Ostatnia aktualizacja: {0}</value>
+  </data>
+  <data name="Open" xml:space="preserve">
+    <value>Otwórz</value>
+  </data>
+  <data name="RefreshNow" xml:space="preserve">
+    <value>Odśwież teraz</value>
+  </data>
+  <data name="Exit" xml:space="preserve">
+    <value>Zakończ</value>
+  </data>
+  <data name="LaunchWithWindows" xml:space="preserve">
+    <value>Uruchamiaj z Windows</value>
+  </data>
+  <data name="UpdateFailedGeneric" xml:space="preserve">
+    <value>Nie udało się odświeżyć danych</value>
+  </data>
+  <data name="AutostartChangeFailed" xml:space="preserve">
+    <value>Nie udało się zmienić autostartu</value>
+  </data>
+  <data name="CursorAuthFailed" xml:space="preserve">
+    <value>Nie udało się uzyskać autoryzacji Cursor. Upewnij się, że Cursor działa i jesteś zalogowany.</value>
+  </data>
+  <data name="TodayPoolsDetailFormat" xml:space="preserve">
+    <value>Dziś: modele {0}, API {1}</value>
+  </data>
+  <data name="ApiSpendFormat" xml:space="preserve">
+    <value>{0} z {1}</value>
+  </data>
+  <data name="DaysPatternZero" xml:space="preserve">
+    <value>{0} days</value>
+  </data>
+  <data name="DaysPatternOne" xml:space="preserve">
+    <value>{0} dzień</value>
+  </data>
+  <data name="DaysPatternTwo" xml:space="preserve">
+    <value>{0} days</value>
+  </data>
+  <data name="DaysPatternFew" xml:space="preserve">
+    <value>{0} dni</value>
+  </data>
+  <data name="DaysPatternMany" xml:space="preserve">
+    <value>{0} dni</value>
+  </data>
+  <data name="DaysPatternOther" xml:space="preserve">
+    <value>{0} dnia</value>
+  </data>
+</root>
