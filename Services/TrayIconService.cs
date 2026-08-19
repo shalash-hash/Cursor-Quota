@@ -29,14 +29,16 @@ public sealed class TrayIconService : IDisposable
 
         _notifyIcon = new NotifyIcon
         {
-            Text = _localizationService["AppTitle"],
             Icon = LoadApplicationIcon(),
             Visible = true
         };
 
         _notifyIcon.DoubleClick += (_, _) => ShowMainWindow();
-        _notifyIcon.ContextMenuStrip = BuildContextMenu();
+        _viewModel.TrayDisplayChanged += OnTrayDisplayChanged;
         _localizationService.PropertyChanged += OnLocalizationChanged;
+
+        UpdateTrayDisplay();
+        _notifyIcon.ContextMenuStrip = BuildContextMenu();
     }
 
     public bool IsExiting { get; private set; }
@@ -52,6 +54,7 @@ public sealed class TrayIconService : IDisposable
         if (_isDisposed)
             return;
 
+        _viewModel.TrayDisplayChanged -= OnTrayDisplayChanged;
         _localizationService.PropertyChanged -= OnLocalizationChanged;
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
@@ -61,6 +64,15 @@ public sealed class TrayIconService : IDisposable
     private ContextMenuStrip BuildContextMenu()
     {
         var menu = new ContextMenuStrip();
+        var displayState = _viewModel.GetTrayDisplayState();
+
+        foreach (var line in displayState.InfoMenuLines)
+        {
+            menu.Items.Add(CreateInfoItem(line));
+        }
+
+        if (displayState.InfoMenuLines.Count > 0)
+            menu.Items.Add(new ToolStripSeparator());
 
         var openItem = new ToolStripMenuItem(_localizationService["Open"]);
         openItem.Click += (_, _) => ShowMainWindow();
@@ -79,20 +91,53 @@ public sealed class TrayIconService : IDisposable
         return menu;
     }
 
-    private void OnLocalizationChanged(object? sender, PropertyChangedEventArgs e)
+    private static ToolStripMenuItem CreateInfoItem(string text)
+    {
+        return new ToolStripMenuItem(text)
+        {
+            Enabled = false
+        };
+    }
+
+    private void OnTrayDisplayChanged(object? sender, EventArgs e)
     {
         if (_isDisposed)
             return;
 
-        _notifyIcon.Text = _localizationService["AppTitle"];
-        _notifyIcon.ContextMenuStrip?.Dispose();
-        _notifyIcon.ContextMenuStrip = BuildContextMenu();
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            if (_isDisposed)
+                return;
+
+            UpdateTrayDisplay();
+            _notifyIcon.ContextMenuStrip?.Dispose();
+            _notifyIcon.ContextMenuStrip = BuildContextMenu();
+        });
+    }
+
+    private void OnLocalizationChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        OnTrayDisplayChanged(sender, e);
+    }
+
+    private void UpdateTrayDisplay()
+    {
+        var displayState = _viewModel.GetTrayDisplayState();
+        _notifyIcon.Text = displayState.TooltipText;
     }
 
     private void ShowMainWindow()
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
+            if (_mainWindow is MainWindow mainWindow)
+            {
+                mainWindow.ShowFromTray();
+                return;
+            }
+
+            _mainWindow.ShowInTaskbar = true;
+
             if (!_mainWindow.IsVisible)
                 _mainWindow.Show();
 

@@ -123,4 +123,34 @@
   <data name="DaysPatternOther" xml:space="preserve">
     <value>{0} дня</value>
   </data>
+  <data name="TrayLoading" xml:space="preserve">
+    <value>Cursor Quota — загрузка...</value>
+  </data>
+  <data name="TrayNoData" xml:space="preserve">
+    <value>Cursor Quota — нет данных</value>
+  </data>
+  <data name="TrayShortTotal" xml:space="preserve">
+    <value>Всего</value>
+  </data>
+  <data name="TrayShortModels" xml:space="preserve">
+    <value>Модели</value>
+  </data>
+  <data name="TrayShortApi" xml:space="preserve">
+    <value>API</value>
+  </data>
+  <data name="TrayTooltipFormat" xml:space="preserve">
+    <value>{0} {1} | {2} {3} | {4} {5}</value>
+  </data>
+  <data name="TrayMenuTotalFormat" xml:space="preserve">
+    <value>Всего: {0}</value>
+  </data>
+  <data name="TrayMenuModelsFormat" xml:space="preserve">
+    <value>Модели Cursor: {0}</value>
+  </data>
+  <data name="TrayMenuApiFormat" xml:space="preserve">
+    <value>API: {0}</value>
+  </data>
+  <data name="TrayUpdatedFormat" xml:space="preserve">
+    <value>Обновлено: {0}</value>
+  </data>
 </root>
