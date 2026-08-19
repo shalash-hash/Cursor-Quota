@@ -21,11 +21,12 @@ public class MainViewModel : ViewModelBase, IDisposable
     private readonly ILocalizationService _localizationService;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
-    private readonly IReadOnlyList<int> _precisionOptions = new[] { 0, 1, 2, 3, 4 };
+    private readonly IReadOnlyList<int> _precisionOptions = new[] { 0, 1, 2, 3, 4, 5, 6, 7 };
     private readonly UiSettings _uiSettings;
 
     private QuotaUsage? _lastSuccessfulUsage;
     private DateTime? _lastSuccessfulUpdate;
+    private bool _hasCompletedFirstRefreshAttempt;
 
     private string _totalUsedPercentText = "—";
     private double _totalProgressValue;
@@ -77,7 +78,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         _uiSettingsService = uiSettingsService;
         _localizationService = localizationService;
         _uiSettings = _uiSettingsService.Load();
-        _selectedDecimalPlaces = Math.Clamp(_uiSettings.PercentageDecimalPlaces, 0, 4);
+        _selectedDecimalPlaces = Math.Clamp(_uiSettings.PercentageDecimalPlaces, 0, 7);
         _localizationService.PropertyChanged += OnLocalizationChanged;
 
         RefreshCommand = new RelayCommand(
@@ -87,7 +88,10 @@ public class MainViewModel : ViewModelBase, IDisposable
         _isStartupEnabled = _startupService.IsEnabled();
         _refreshScheduler = new QuotaRefreshScheduler(RefreshAsync, TimeSpan.FromMinutes(1));
         ResetDisplayTexts();
+        NotifyTrayDisplayChanged();
     }
+
+    public event EventHandler? TrayDisplayChanged;
 
     public ICommand RefreshCommand { get; }
 
@@ -112,7 +116,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         get => _selectedDecimalPlaces;
         set
         {
-            var sanitized = Math.Clamp(value, 0, 4);
+            var sanitized = Math.Clamp(value, 0, 7);
             if (!SetProperty(ref _selectedDecimalPlaces, sanitized))
                 return;
 
@@ -121,6 +125,8 @@ public class MainViewModel : ViewModelBase, IDisposable
 
             if (_lastSuccessfulUsage is not null)
                 ApplyUsage(_lastSuccessfulUsage);
+            else
+                NotifyTrayDisplayChanged();
         }
     }
 
@@ -344,9 +350,25 @@ public class MainViewModel : ViewModelBase, IDisposable
         }
         finally
         {
+            _hasCompletedFirstRefreshAttempt = true;
             _refreshLock.Release();
-            RunOnUi(() => SetRefreshingState(false));
+            RunOnUi(() =>
+            {
+                SetRefreshingState(false);
+                NotifyTrayDisplayChanged();
+            });
         }
+    }
+
+    public TrayDisplayState GetTrayDisplayState()
+    {
+        var dataState = ResolveTrayDataState();
+        return TrayDisplayFormatter.Create(
+            dataState,
+            _lastSuccessfulUsage,
+            _lastSuccessfulUpdate,
+            SelectedDecimalPlaces,
+            _localizationService);
     }
 
     public void Dispose()
@@ -460,6 +482,8 @@ public class MainViewModel : ViewModelBase, IDisposable
             "TodayPoolsDetailFormat",
             PercentageFormatter.Format(usage.TodayFirstPartyUsedPercent, digits, culture),
             PercentageFormatter.Format(usage.TodayApiUsedPercent, digits, culture));
+
+        NotifyTrayDisplayChanged();
     }
 
     private void OnLocalizationChanged(object? sender, PropertyChangedEventArgs e)
@@ -494,6 +518,8 @@ public class MainViewModel : ViewModelBase, IDisposable
 
         if (_lastSuccessfulUsage is not null)
             ApplyUsage(_lastSuccessfulUsage);
+        else
+            NotifyTrayDisplayChanged();
     }
 
     private void SetError(string key, params object[] args)
@@ -532,5 +558,21 @@ public class MainViewModel : ViewModelBase, IDisposable
             value,
             decimalPlaces,
             LocalizationService.Instance.CurrentCulture);
+    }
+
+    private TrayDataState ResolveTrayDataState()
+    {
+        if (_lastSuccessfulUsage is not null)
+            return TrayDataState.Ready;
+
+        if (!_hasCompletedFirstRefreshAttempt || IsRefreshing)
+            return TrayDataState.Loading;
+
+        return TrayDataState.NoData;
+    }
+
+    private void NotifyTrayDisplayChanged()
+    {
+        TrayDisplayChanged?.Invoke(this, EventArgs.Empty);
     }
 }

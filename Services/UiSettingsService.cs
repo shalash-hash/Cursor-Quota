@@ -43,7 +43,7 @@ public sealed class UiSettingsService
     {
         var sanitized = new UiSettings
         {
-            PercentageDecimalPlaces = Math.Clamp(settings.PercentageDecimalPlaces, 0, 4),
+            PercentageDecimalPlaces = Math.Clamp(settings.PercentageDecimalPlaces, 0, 7),
             PreferredLanguage = string.IsNullOrWhiteSpace(settings.PreferredLanguage)
                 ? null
                 : settings.PreferredLanguage

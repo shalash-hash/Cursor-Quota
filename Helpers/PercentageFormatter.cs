@@ -7,7 +7,7 @@ public static class PercentageFormatter
 {
     public static string Format(double value, int decimalPlaces, CultureInfo culture)
     {
-        var sanitizedPlaces = Math.Clamp(decimalPlaces, 0, 4);
+        var sanitizedPlaces = Math.Clamp(decimalPlaces, 0, 7);
         var pattern = sanitizedPlaces == 0
             ? "0"
             : "0." + new string('0', sanitizedPlaces);
@@ -17,7 +17,7 @@ public static class PercentageFormatter
 
     public static string FormatNumber(double value, int decimalPlaces, CultureInfo culture)
     {
-        var sanitizedPlaces = Math.Clamp(decimalPlaces, 0, 4);
+        var sanitizedPlaces = Math.Clamp(decimalPlaces, 0, 7);
         var pattern = sanitizedPlaces == 0
             ? "0"
             : "0." + new string('0', sanitizedPlaces);

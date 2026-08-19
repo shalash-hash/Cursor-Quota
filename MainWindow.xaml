@@ -61,14 +61,6 @@
                               Height="28"
                               Margin="0,0,10,0"
                               VerticalContentAlignment="Center"/>
-                    <TextBlock Text="{Binding LastUpdateTimeText}"
-                               FontSize="13"
-                               Foreground="{StaticResource SecondaryTextBrush}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,10,0"/>
-                    <Button Content="{Binding RefreshButtonText}"
-                            Style="{StaticResource CompactButton}"
-                            Command="{Binding RefreshCommand}"/>
                 </StackPanel>
             </Grid>
 
