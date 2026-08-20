@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Windows;
+using System.Windows.Interop;
 using Quota.Services;
 using Quota.ViewModels;
 
@@ -14,7 +15,6 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = viewModel;
-        StateChanged += OnStateChanged;
     }
 
     public void SetTrayService(TrayIconService trayIconService)
@@ -31,8 +31,10 @@ public partial class MainWindow : Window
         try
         {
             ShowInTaskbar = false;
-            WindowState = WindowState.Normal;
             Hide();
+
+            if (WindowState == WindowState.Minimized)
+                WindowState = WindowState.Normal;
         }
         finally
         {
@@ -52,13 +54,22 @@ public partial class MainWindow : Window
         Focus();
     }
 
-    private void OnStateChanged(object? sender, EventArgs e)
+    protected override void OnSourceInitialized(EventArgs e)
     {
-        if (_isHidingToTray)
+        base.OnSourceInitialized(e);
+
+        if (PresentationSource.FromVisual(this) is HwndSource source)
+            source.AddHook(WndProc);
+    }
+
+    protected override void OnStateChanged(EventArgs e)
+    {
+        base.OnStateChanged(e);
+
+        if (_isHidingToTray || WindowState != WindowState.Minimized)
             return;
 
-        if (WindowState == WindowState.Minimized)
-            HideToTray();
+        Dispatcher.BeginInvoke(HideToTray, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -71,5 +82,19 @@ public partial class MainWindow : Window
         }
 
         base.OnClosing(e);
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        const int wmSysCommand = 0x0112;
+        const int scMinimize = 0xF020;
+
+        if (msg == wmSysCommand && (wParam.ToInt32() & 0xFFF0) == scMinimize)
+        {
+            HideToTray();
+            handled = true;
+        }
+
+        return IntPtr.Zero;
     }
 }
