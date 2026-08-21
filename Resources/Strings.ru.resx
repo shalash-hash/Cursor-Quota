@@ -13,7 +13,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="AppTitle" xml:space="preserve">
-    <value>Cursor Quota</value>
+    <value>Расход квоты Курсора</value>
   </data>
   <data name="LanguageLabel" xml:space="preserve">
     <value>Язык</value>
@@ -130,10 +130,10 @@
     <value>{0} дня</value>
   </data>
   <data name="TrayLoading" xml:space="preserve">
-    <value>Cursor Quota — загрузка...</value>
+    <value>Расход квоты Курсора — загрузка...</value>
   </data>
   <data name="TrayNoData" xml:space="preserve">
-    <value>Cursor Quota — нет данных</value>
+    <value>Расход квоты Курсора — нет данных</value>
   </data>
   <data name="TrayShortTotal" xml:space="preserve">
     <value>Всего</value>
