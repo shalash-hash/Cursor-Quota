@@ -9,4 +9,13 @@ public sealed class UiSettings
 
     [JsonPropertyName("preferredLanguage")]
     public string? PreferredLanguage { get; set; }
+
+    [JsonPropertyName("windowWidth")]
+    public double? WindowWidth { get; set; }
+
+    [JsonPropertyName("windowHeight")]
+    public double? WindowHeight { get; set; }
+
+    [JsonPropertyName("isDarkMode")]
+    public bool IsDarkMode { get; set; }
 }

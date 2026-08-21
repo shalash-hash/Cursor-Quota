@@ -1,0 +1,89 @@
+<UserControl x:Class="Quota.Controls.DailyTargetProgressBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:Quota.Converters">
+    <UserControl.Resources>
+        <converters:FillWidthMultiConverter x:Key="FillWidthMultiConverter"/>
+        <converters:DoubleToStarGridLengthConverter x:Key="StarGridLengthConverter"/>
+    </UserControl.Resources>
+    <StackPanel>
+        <Grid x:Name="Track"
+              Height="14"
+              ClipToBounds="True">
+            <Grid>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsDailyTargetExceeded}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Border Background="{DynamicResource ProgressTrackBrush}"
+                        CornerRadius="4"/>
+                <Border Background="{StaticResource DailyProgressBrush}"
+                        CornerRadius="4"
+                        HorizontalAlignment="Left">
+                    <Border.Width>
+                        <MultiBinding Converter="{StaticResource FillWidthMultiConverter}">
+                            <Binding ElementName="Track" Path="ActualWidth"/>
+                            <Binding Path="DailyProgressFillPercent"/>
+                        </MultiBinding>
+                    </Border.Width>
+                </Border>
+            </Grid>
+
+            <Grid>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsDailyTargetExceeded}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Border Background="{DynamicResource ProgressTrackBrush}"
+                        CornerRadius="4"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="{Binding DailyNormSegmentWeight, Converter={StaticResource StarGridLengthConverter}}"/>
+                        <ColumnDefinition Width="{Binding DailyAheadSegmentWeight, Converter={StaticResource StarGridLengthConverter}}"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0"
+                            Background="{StaticResource DailyProgressBrush}"
+                            CornerRadius="4,0,0,4"/>
+                    <Border Grid.Column="1"
+                            Background="{StaticResource AheadOfScheduleBrush}"
+                            CornerRadius="0,4,4,0"/>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <Grid Margin="0,5,0,0">
+            <TextBlock Text="{Binding DailyProgressNormLabel}"
+                       FontSize="11"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource DailyProgressBrush}"/>
+            <TextBlock Text="{Binding DailyProgressAheadLabel}"
+                       FontSize="11"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource AheadOfScheduleBrush}"
+                       HorizontalAlignment="Right">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding DailyProgressAheadLabel}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </Grid>
+    </StackPanel>
+</UserControl>

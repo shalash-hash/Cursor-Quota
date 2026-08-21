@@ -9,12 +9,23 @@ namespace Quota;
 public partial class MainWindow : Window
 {
     private TrayIconService? _trayIconService;
+    private UiSettingsService? _uiSettingsService;
+    private UiSettings? _uiSettings;
     private bool _isHidingToTray;
 
     public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
         DataContext = viewModel;
+    }
+
+    public void ApplyWindowSettings(UiSettingsService uiSettingsService)
+    {
+        _uiSettingsService = uiSettingsService;
+        _uiSettings = uiSettingsService.Load();
+
+        Width = _uiSettings.WindowWidth ?? UiSettingsService.DefaultWindowWidth;
+        Height = _uiSettings.WindowHeight ?? UiSettingsService.DefaultWindowHeight;
     }
 
     public void SetTrayService(TrayIconService trayIconService)
@@ -30,6 +41,7 @@ public partial class MainWindow : Window
         _isHidingToTray = true;
         try
         {
+            SaveWindowSize();
             ShowInTaskbar = false;
             Hide();
 
@@ -81,7 +93,23 @@ public partial class MainWindow : Window
             return;
         }
 
+        SaveWindowSize();
         base.OnClosing(e);
+    }
+
+    private void SaveWindowSize()
+    {
+        if (_uiSettingsService is null)
+            return;
+
+        if (WindowState != WindowState.Normal)
+            return;
+
+        var settings = _uiSettingsService.Load();
+        settings.WindowWidth = ActualWidth;
+        settings.WindowHeight = ActualHeight;
+        _uiSettingsService.Save(settings);
+        _uiSettings = settings;
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)

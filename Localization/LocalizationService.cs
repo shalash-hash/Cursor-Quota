@@ -68,8 +68,9 @@ public sealed class LocalizationService : ILocalizationService
                 return;
 
             _selectedLanguage = value;
-            _uiSettings.PreferredLanguage = value.Culture.Name;
-            _uiSettingsService.Save(_uiSettings);
+            var settings = _uiSettingsService.Load();
+            settings.PreferredLanguage = value.Culture.Name;
+            _uiSettingsService.Save(settings);
             ApplyCulture(value.Culture);
             RaiseAllChanged();
         }

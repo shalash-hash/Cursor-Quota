@@ -21,6 +21,9 @@
   <data name="PrecisionLabel" xml:space="preserve">
     <value>Precision</value>
   </data>
+  <data name="DarkModeLabel" xml:space="preserve">
+    <value>Dark mode</value>
+  </data>
   <data name="Refresh" xml:space="preserve">
     <value>Refresh</value>
   </data>
@@ -53,6 +56,9 @@
   </data>
   <data name="OverDailyTargetFormat" xml:space="preserve">
     <value>+{0} above target</value>
+  </data>
+  <data name="AheadOfScheduleFormat" xml:space="preserve">
+    <value>Ahead of schedule: {0}</value>
   </data>
   <data name="CursorModelsLabel" xml:space="preserve">
     <value>Cursor Models</value>

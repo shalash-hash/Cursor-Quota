@@ -29,6 +29,8 @@ public partial class App : WpfApplication
         var startupService = new StartupService();
         var snapshotRepository = new QuotaSnapshotRepository();
         var uiSettingsService = new UiSettingsService();
+        var themeService = new ThemeService(uiSettingsService);
+        themeService.ApplySavedTheme();
         var localizationService = new LocalizationService(uiSettingsService);
 
         _viewModel = new MainViewModel(
@@ -38,9 +40,11 @@ public partial class App : WpfApplication
             snapshotRepository,
             diagnosticLogger,
             uiSettingsService,
+            themeService,
             localizationService);
 
         var mainWindow = new MainWindow(_viewModel);
+        mainWindow.ApplyWindowSettings(uiSettingsService);
         _trayIconService = new TrayIconService(mainWindow, _viewModel, localizationService);
         mainWindow.SetTrayService(_trayIconService);
 

@@ -18,6 +18,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     private readonly QuotaDiagnosticLogger _logger;
     private readonly QuotaRefreshScheduler _refreshScheduler;
     private readonly UiSettingsService _uiSettingsService;
+    private readonly ThemeService _themeService;
     private readonly ILocalizationService _localizationService;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
@@ -38,6 +39,12 @@ public class MainViewModel : ViewModelBase, IDisposable
     private string _todaySpentText = "—";
     private string _todayStatusText = string.Empty;
     private string _todayOverageText = string.Empty;
+    private bool _isDailyTargetExceeded;
+    private double _dailyProgressFillPercent;
+    private double _dailyNormSegmentWeight = 1;
+    private double _dailyAheadSegmentWeight;
+    private string _dailyProgressNormLabel = string.Empty;
+    private string _dailyProgressAheadLabel = string.Empty;
 
     private string _firstPartyUsedPercentText = "—";
     private double _firstPartyProgressValue;
@@ -59,6 +66,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     private string _refreshButtonText = string.Empty;
     private bool _isRefreshing;
     private bool _isStartupEnabled;
+    private bool _isDarkMode;
     private int _selectedDecimalPlaces;
 
     public MainViewModel(
@@ -68,6 +76,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         QuotaSnapshotRepository snapshotRepository,
         QuotaDiagnosticLogger logger,
         UiSettingsService uiSettingsService,
+        ThemeService themeService,
         ILocalizationService localizationService)
     {
         _quotaUsageProvider = quotaUsageProvider;
@@ -76,9 +85,11 @@ public class MainViewModel : ViewModelBase, IDisposable
         _snapshotRepository = snapshotRepository;
         _logger = logger;
         _uiSettingsService = uiSettingsService;
+        _themeService = themeService;
         _localizationService = localizationService;
         _uiSettings = _uiSettingsService.Load();
         _selectedDecimalPlaces = Math.Clamp(_uiSettings.PercentageDecimalPlaces, 0, 7);
+        _isDarkMode = _themeService.IsDarkMode;
         _localizationService.PropertyChanged += OnLocalizationChanged;
 
         RefreshCommand = new RelayCommand(
@@ -120,13 +131,26 @@ public class MainViewModel : ViewModelBase, IDisposable
             if (!SetProperty(ref _selectedDecimalPlaces, sanitized))
                 return;
 
-            _uiSettings.PercentageDecimalPlaces = sanitized;
-            _uiSettingsService.Save(_uiSettings);
+            var settings = _uiSettingsService.Load();
+            settings.PercentageDecimalPlaces = sanitized;
+            _uiSettingsService.Save(settings);
 
             if (_lastSuccessfulUsage is not null)
                 ApplyUsage(_lastSuccessfulUsage);
             else
                 NotifyTrayDisplayChanged();
+        }
+    }
+
+    public bool IsDarkMode
+    {
+        get => _isDarkMode;
+        set
+        {
+            if (!SetProperty(ref _isDarkMode, value))
+                return;
+
+            _themeService.SetDarkMode(value);
         }
     }
 
@@ -194,6 +218,42 @@ public class MainViewModel : ViewModelBase, IDisposable
     {
         get => _todayOverageText;
         private set => SetProperty(ref _todayOverageText, value);
+    }
+
+    public bool IsDailyTargetExceeded
+    {
+        get => _isDailyTargetExceeded;
+        private set => SetProperty(ref _isDailyTargetExceeded, value);
+    }
+
+    public double DailyProgressFillPercent
+    {
+        get => _dailyProgressFillPercent;
+        private set => SetProperty(ref _dailyProgressFillPercent, value);
+    }
+
+    public double DailyNormSegmentWeight
+    {
+        get => _dailyNormSegmentWeight;
+        private set => SetProperty(ref _dailyNormSegmentWeight, value);
+    }
+
+    public double DailyAheadSegmentWeight
+    {
+        get => _dailyAheadSegmentWeight;
+        private set => SetProperty(ref _dailyAheadSegmentWeight, value);
+    }
+
+    public string DailyProgressNormLabel
+    {
+        get => _dailyProgressNormLabel;
+        private set => SetProperty(ref _dailyProgressNormLabel, value);
+    }
+
+    public string DailyProgressAheadLabel
+    {
+        get => _dailyProgressAheadLabel;
+        private set => SetProperty(ref _dailyProgressAheadLabel, value);
     }
 
     public string FirstPartyUsedPercentText
@@ -429,14 +489,35 @@ public class MainViewModel : ViewModelBase, IDisposable
         TodaySpentText = _localizationService.Format(
             "TodaySpentFormat",
             PercentageFormatter.Format(usage.TodayTotalUsedPercent, digits, culture));
+
+        var dailyProgress = DailyTargetProgressCalculator.Calculate(
+            usage.TodayTotalUsedPercent,
+            calculation.Total.DailyTarget);
+
+        IsDailyTargetExceeded = dailyProgress.IsExceeded;
+        DailyProgressFillPercent = dailyProgress.FillPercent;
+        DailyNormSegmentWeight = dailyProgress.NormSegmentWeight;
+        DailyAheadSegmentWeight = dailyProgress.AheadSegmentWeight;
+
+        if (dailyProgress.IsExceeded)
+        {
+            DailyProgressNormLabel = PercentageFormatter.Format(100, digits, culture);
+            DailyProgressAheadLabel = calculation.Total.TodayOverage > 0
+                ? _localizationService.Format(
+                    "AheadOfScheduleFormat",
+                    PercentageFormatter.Format(calculation.Total.TodayOverage, digits, culture))
+                : string.Empty;
+        }
+        else
+        {
+            DailyProgressNormLabel = PercentageFormatter.Format(dailyProgress.PlanCompletionPercent, digits, culture);
+            DailyProgressAheadLabel = string.Empty;
+        }
+
         if (calculation.Total.IsTodayPlanCompleted)
         {
             TodayStatusText = _localizationService["TodayPlanCompleted"];
-            TodayOverageText = calculation.Total.TodayOverage > 0
-                ? _localizationService.Format(
-                    "OverDailyTargetFormat",
-                    PercentageFormatter.Format(calculation.Total.TodayOverage, digits, culture))
-                : string.Empty;
+            TodayOverageText = string.Empty;
         }
         else
         {
@@ -505,6 +586,12 @@ public class MainViewModel : ViewModelBase, IDisposable
         TodaySpentText = _localizationService.Format("TodaySpentFormat", dash);
         TodayStatusText = string.Empty;
         TodayOverageText = string.Empty;
+        IsDailyTargetExceeded = false;
+        DailyProgressFillPercent = 0;
+        DailyNormSegmentWeight = 1;
+        DailyAheadSegmentWeight = 0;
+        DailyProgressNormLabel = string.Empty;
+        DailyProgressAheadLabel = string.Empty;
         FirstPartyUsedPercentText = dash;
         FirstPartyPaceText = _localizationService.Format("PaceFormat", dashPercent);
         ApiUsedPercentText = dash;
