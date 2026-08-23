@@ -26,6 +26,49 @@ public static class DailyPlanCalculator
         return Math.Max(0, days);
     }
 
+    public static double CalculateCursorModelDailyPlan(
+        double cursorRemaining,
+        DateTime today,
+        DateTime cycleStart,
+        DateTime realResetDate)
+    {
+        if (cursorRemaining <= 0)
+            return 0;
+
+        return CalculateDailyPlan(cursorRemaining, today, cycleStart, realResetDate);
+    }
+
+    public static double CalculateApiDailyPlan(
+        double apiRemaining,
+        DateTime today,
+        DateTime cycleStart,
+        DateTime realResetDate)
+    {
+        if (apiRemaining <= 0)
+            return 0;
+
+        today = today.Date;
+        cycleStart = cycleStart.Date;
+        realResetDate = realResetDate.Date;
+
+        if (IsWithinAcceleratedPeriod(today, cycleStart) && today <= realResetDate)
+            return 0;
+
+        return SpreadRemainingUntilReset(apiRemaining, today, realResetDate);
+    }
+
+    public static double CalculateCombinedDailyPlan(
+        double cursorRemaining,
+        double apiRemaining,
+        DateTime today,
+        DateTime cycleStart,
+        DateTime realResetDate)
+    {
+        var cursorPlan = CalculateCursorModelDailyPlan(cursorRemaining, today, cycleStart, realResetDate);
+        var apiPlan = CalculateApiDailyPlan(apiRemaining, today, cycleStart, realResetDate);
+        return cursorPlan + apiPlan;
+    }
+
     public static double CalculateDailyPlan(
         double remainingPercent,
         DateTime today,
@@ -40,6 +83,20 @@ public static class DailyPlanCalculator
         realResetDate = realResetDate.Date;
 
         var planEnd = ResolvePlanEnd(today, cycleStart, realResetDate);
+        return SpreadRemainingUntilPlanEnd(remainingPercent, today, planEnd);
+    }
+
+    private static double SpreadRemainingUntilReset(
+        double remainingPercent,
+        DateTime today,
+        DateTime realResetDate)
+        => SpreadRemainingUntilPlanEnd(remainingPercent, today, realResetDate);
+
+    private static double SpreadRemainingUntilPlanEnd(
+        double remainingPercent,
+        DateTime today,
+        DateTime planEnd)
+    {
         var remainingPlanDays = CalculateRemainingPlanDays(today, planEnd, remainingPercent);
 
         if (remainingPlanDays <= 0)

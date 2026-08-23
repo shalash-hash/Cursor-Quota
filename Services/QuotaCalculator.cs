@@ -16,41 +16,69 @@ public class QuotaCalculator
         var remainingDays = DailyPlanCalculator.CalculateRemainingPlanDays(
             today,
             periodEnd,
-            100 - usage.TotalUsedPercent);
+            Math.Max(0, 100 - usage.TotalUsedPercent));
+
+        var firstParty = CalculatePool(
+            usage.FirstPartyUsedPercent,
+            usage.TodayFirstPartyUsedPercent,
+            remaining => DailyPlanCalculator.CalculateCursorModelDailyPlan(
+                remaining,
+                today,
+                cycleStart,
+                periodEnd));
+
+        var api = CalculatePool(
+            usage.ApiUsedPercent,
+            usage.TodayApiUsedPercent,
+            remaining => DailyPlanCalculator.CalculateApiDailyPlan(
+                remaining,
+                today,
+                cycleStart,
+                periodEnd));
+
+        var total = CalculateTotalPool(
+            usage.TotalUsedPercent,
+            usage.TodayTotalUsedPercent,
+            firstParty.DailyTarget + api.DailyTarget);
 
         return new QuotaCalculationResult
         {
             RemainingDays = remainingDays,
-            Total = CalculatePool(
-                usage.TotalUsedPercent,
-                usage.TodayTotalUsedPercent,
-                today,
-                cycleStart,
-                periodEnd),
-            FirstParty = CalculatePool(
-                usage.FirstPartyUsedPercent,
-                usage.TodayFirstPartyUsedPercent,
-                today,
-                cycleStart,
-                periodEnd),
-            Api = CalculatePool(
-                usage.ApiUsedPercent,
-                usage.TodayApiUsedPercent,
-                today,
-                cycleStart,
-                periodEnd)
+            Total = total,
+            FirstParty = firstParty,
+            Api = api
         };
     }
 
     private static PoolCalculation CalculatePool(
         double usedPercent,
         double todayUsedPercent,
-        DateTime today,
-        DateTime cycleStart,
-        DateTime realResetDate)
+        Func<double, double> dailyPlanFactory)
     {
-        var remaining = 100 - usedPercent;
-        var dailyTarget = DailyPlanCalculator.CalculateDailyPlan(remaining, today, cycleStart, realResetDate);
+        var remaining = Math.Max(0, 100 - usedPercent);
+        var dailyTarget = dailyPlanFactory(remaining);
+        var todayMetrics = CalculateTodayMetrics(todayUsedPercent, dailyTarget);
+        var paceStatus = DeterminePaceStatus(todayUsedPercent, dailyTarget);
+
+        return new PoolCalculation
+        {
+            UsedPercent = usedPercent,
+            RemainingPercent = remaining,
+            DailyTarget = dailyTarget,
+            TodayUsed = todayUsedPercent,
+            TodayRemaining = todayMetrics.TodayRemaining,
+            IsTodayPlanCompleted = todayMetrics.IsPlanCompleted,
+            TodayOverage = todayMetrics.TodayOverage,
+            PaceStatus = paceStatus
+        };
+    }
+
+    private static PoolCalculation CalculateTotalPool(
+        double usedPercent,
+        double todayUsedPercent,
+        double dailyTarget)
+    {
+        var remaining = Math.Max(0, 100 - usedPercent);
         var todayMetrics = CalculateTodayMetrics(todayUsedPercent, dailyTarget);
         var paceStatus = DeterminePaceStatus(todayUsedPercent, dailyTarget);
 
