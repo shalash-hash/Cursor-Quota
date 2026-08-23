@@ -17,4 +17,11 @@
     <Resource Include="Assets\app_icon.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="Quota.Tests\**" />
+    <None Remove="Quota.Tests\**" />
+    <EmbeddedResource Remove="Quota.Tests\**" />
+    <Page Remove="Quota.Tests\**" />
+  </ItemGroup>
+
 </Project>
