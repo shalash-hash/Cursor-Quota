@@ -36,6 +36,11 @@ public class MainViewModel : ViewModelBase, IDisposable
     private string _daysUntilResetText = "—";
     private string _totalDailyTargetText = "—";
 
+    private string _totalTodaySpentText = "—";
+    private string _totalYesterdaySpentText = "—";
+    private string _dailyTodaySpentText = "—";
+    private string _dailyYesterdaySpentText = "—";
+
     private string _todaySpentText = "—";
     private string _todayStatusText = string.Empty;
     private string _todayOverageText = string.Empty;
@@ -49,11 +54,15 @@ public class MainViewModel : ViewModelBase, IDisposable
     private string _firstPartyUsedPercentText = "—";
     private double _firstPartyProgressValue;
     private string _firstPartyPaceText = "—";
+    private string _firstPartyTodaySpentText = "—";
+    private string _firstPartyYesterdaySpentText = "—";
 
     private string _apiUsedPercentText = "—";
     private double _apiProgressValue;
     private string _apiSpendText = string.Empty;
     private string _apiPaceText = "—";
+    private string _apiTodaySpentText = "—";
+    private string _apiYesterdaySpentText = "—";
 
     private string _paceStatusText = string.Empty;
     private string _todayPoolsDetailText = string.Empty;
@@ -202,6 +211,30 @@ public class MainViewModel : ViewModelBase, IDisposable
         private set => SetProperty(ref _totalDailyTargetText, value);
     }
 
+    public string TotalTodaySpentText
+    {
+        get => _totalTodaySpentText;
+        private set => SetProperty(ref _totalTodaySpentText, value);
+    }
+
+    public string TotalYesterdaySpentText
+    {
+        get => _totalYesterdaySpentText;
+        private set => SetProperty(ref _totalYesterdaySpentText, value);
+    }
+
+    public string DailyTodaySpentText
+    {
+        get => _dailyTodaySpentText;
+        private set => SetProperty(ref _dailyTodaySpentText, value);
+    }
+
+    public string DailyYesterdaySpentText
+    {
+        get => _dailyYesterdaySpentText;
+        private set => SetProperty(ref _dailyYesterdaySpentText, value);
+    }
+
     public string TodaySpentText
     {
         get => _todaySpentText;
@@ -274,6 +307,18 @@ public class MainViewModel : ViewModelBase, IDisposable
         private set => SetProperty(ref _firstPartyPaceText, value);
     }
 
+    public string FirstPartyTodaySpentText
+    {
+        get => _firstPartyTodaySpentText;
+        private set => SetProperty(ref _firstPartyTodaySpentText, value);
+    }
+
+    public string FirstPartyYesterdaySpentText
+    {
+        get => _firstPartyYesterdaySpentText;
+        private set => SetProperty(ref _firstPartyYesterdaySpentText, value);
+    }
+
     public string ApiUsedPercentText
     {
         get => _apiUsedPercentText;
@@ -296,6 +341,18 @@ public class MainViewModel : ViewModelBase, IDisposable
     {
         get => _apiPaceText;
         private set => SetProperty(ref _apiPaceText, value);
+    }
+
+    public string ApiTodaySpentText
+    {
+        get => _apiTodaySpentText;
+        private set => SetProperty(ref _apiTodaySpentText, value);
+    }
+
+    public string ApiYesterdaySpentText
+    {
+        get => _apiYesterdaySpentText;
+        private set => SetProperty(ref _apiYesterdaySpentText, value);
     }
 
     public string PaceStatusText
@@ -486,9 +543,9 @@ public class MainViewModel : ViewModelBase, IDisposable
             "PerDayFormat",
             PercentageFormatter.Format(calculation.Total.DailyTarget, digits, culture));
 
-        TodaySpentText = _localizationService.Format(
-            "TodaySpentFormat",
-            PercentageFormatter.Format(usage.TodayTotalUsedPercent, digits, culture));
+        ApplyDailySpentTexts(usage, digits, culture);
+
+        TodaySpentText = DailyTodaySpentText;
 
         var dailyProgress = DailyTargetProgressCalculator.Calculate(
             usage.TodayTotalUsedPercent,
@@ -567,6 +624,69 @@ public class MainViewModel : ViewModelBase, IDisposable
         NotifyTrayDisplayChanged();
     }
 
+    private void ApplyDailySpentTexts(QuotaUsage usage, int digits, CultureInfo culture)
+    {
+        TotalTodaySpentText = FormatDailySpentLine(
+            "DailySpentTodayFormat",
+            usage.TodayTotalUsedPercent,
+            digits,
+            culture);
+        TotalYesterdaySpentText = FormatDailySpentLine(
+            "DailySpentYesterdayFormat",
+            usage.YesterdayTotalUsedPercent,
+            usage.HasYesterdayUsageData,
+            digits,
+            culture);
+
+        DailyTodaySpentText = TotalTodaySpentText;
+        DailyYesterdaySpentText = TotalYesterdaySpentText;
+
+        FirstPartyTodaySpentText = FormatDailySpentLine(
+            "DailySpentTodayFormat",
+            usage.TodayFirstPartyUsedPercent,
+            digits,
+            culture);
+        FirstPartyYesterdaySpentText = FormatDailySpentLine(
+            "DailySpentYesterdayFormat",
+            usage.YesterdayFirstPartyUsedPercent,
+            usage.HasYesterdayUsageData,
+            digits,
+            culture);
+
+        ApiTodaySpentText = FormatDailySpentLine(
+            "DailySpentTodayFormat",
+            usage.TodayApiUsedPercent,
+            digits,
+            culture);
+        ApiYesterdaySpentText = FormatDailySpentLine(
+            "DailySpentYesterdayFormat",
+            usage.YesterdayApiUsedPercent,
+            usage.HasYesterdayUsageData,
+            digits,
+            culture);
+    }
+
+    private string FormatDailySpentLine(
+        string resourceKey,
+        double value,
+        int digits,
+        CultureInfo culture)
+        => FormatDailySpentLine(resourceKey, value, true, digits, culture);
+
+    private string FormatDailySpentLine(
+        string resourceKey,
+        double value,
+        bool hasData,
+        int digits,
+        CultureInfo culture)
+    {
+        var formattedValue = hasData
+            ? PercentageFormatter.Format(value, digits, culture)
+            : "—";
+
+        return _localizationService.Format(resourceKey, formattedValue);
+    }
+
     private void OnLocalizationChanged(object? sender, PropertyChangedEventArgs e)
     {
         OnPropertyChanged(nameof(SelectedLanguage));
@@ -583,7 +703,11 @@ public class MainViewModel : ViewModelBase, IDisposable
         TotalRemainingText = _localizationService.Format("TotalRemainingFormat", dash);
         DaysUntilResetText = _localizationService.Format("QuotaResetInFormat", dash);
         TotalDailyTargetText = _localizationService.Format("PerDayFormat", dashPercent);
-        TodaySpentText = _localizationService.Format("TodaySpentFormat", dash);
+        TotalTodaySpentText = _localizationService.Format("DailySpentTodayFormat", dash);
+        TotalYesterdaySpentText = _localizationService.Format("DailySpentYesterdayFormat", dash);
+        DailyTodaySpentText = TotalTodaySpentText;
+        DailyYesterdaySpentText = TotalYesterdaySpentText;
+        TodaySpentText = TotalTodaySpentText;
         TodayStatusText = string.Empty;
         TodayOverageText = string.Empty;
         IsDailyTargetExceeded = false;
@@ -594,9 +718,13 @@ public class MainViewModel : ViewModelBase, IDisposable
         DailyProgressAheadLabel = string.Empty;
         FirstPartyUsedPercentText = dash;
         FirstPartyPaceText = _localizationService.Format("PaceFormat", dashPercent);
+        FirstPartyTodaySpentText = _localizationService.Format("DailySpentTodayFormat", dash);
+        FirstPartyYesterdaySpentText = _localizationService.Format("DailySpentYesterdayFormat", dash);
         ApiUsedPercentText = dash;
         ApiSpendText = string.Empty;
         ApiPaceText = _localizationService.Format("PaceFormat", dashPercent);
+        ApiTodaySpentText = _localizationService.Format("DailySpentTodayFormat", dash);
+        ApiYesterdaySpentText = _localizationService.Format("DailySpentYesterdayFormat", dash);
         PaceStatusText = string.Empty;
         TodayPoolsDetailText = string.Empty;
         UpdateLastUpdateText();

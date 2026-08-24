@@ -51,6 +51,8 @@ public sealed class ThemeService
         SetBrushColor(resources, "ProgressTrackBrush", palette.ProgressTrack);
         SetBrushColor(resources, "FirstPartyBrush", palette.FirstParty);
         SetBrushColor(resources, "ApiBrush", palette.Api);
+        SetBrushColor(resources, "SpentTodayBrush", palette.SpentToday);
+        SetBrushColor(resources, "SpentYesterdayBrush", palette.SpentYesterday);
         SetBrushColor(resources, "ErrorBackgroundBrush", palette.ErrorBackground);
         SetBrushColor(resources, "ErrorBorderBrush", palette.ErrorBorder);
         SetBrushColor(resources, "InputBackgroundBrush", palette.InputBackground);
@@ -77,6 +79,8 @@ public sealed class ThemeService
         ProgressTrack: ColorFromHex("#E5E7EB"),
         FirstParty: ColorFromHex("#6366F1"),
         Api: ColorFromHex("#0EA5E9"),
+        SpentToday: ColorFromHex("#059669"),
+        SpentYesterday: ColorFromHex("#D97706"),
         ErrorBackground: ColorFromHex("#FEF2F2"),
         ErrorBorder: ColorFromHex("#FECACA"),
         InputBackground: ColorFromHex("#FFFFFF"),
@@ -97,6 +101,8 @@ public sealed class ThemeService
         ProgressTrack: ColorFromHex("#374151"),
         FirstParty: ColorFromHex("#818CF8"),
         Api: ColorFromHex("#38BDF8"),
+        SpentToday: ColorFromHex("#34D399"),
+        SpentYesterday: ColorFromHex("#FBBF24"),
         ErrorBackground: ColorFromHex("#450A0A"),
         ErrorBorder: ColorFromHex("#991B1B"),
         InputBackground: ColorFromHex("#374151"),
@@ -127,6 +133,8 @@ public sealed class ThemeService
         WpfColor ProgressTrack,
         WpfColor FirstParty,
         WpfColor Api,
+        WpfColor SpentToday,
+        WpfColor SpentYesterday,
         WpfColor ErrorBackground,
         WpfColor ErrorBorder,
         WpfColor InputBackground,

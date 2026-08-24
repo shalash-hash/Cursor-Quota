@@ -14,6 +14,14 @@ public class QuotaUsage
 
     public double TodayApiUsedPercent { get; init; }
 
+    public double YesterdayTotalUsedPercent { get; init; }
+
+    public double YesterdayFirstPartyUsedPercent { get; init; }
+
+    public double YesterdayApiUsedPercent { get; init; }
+
+    public bool HasYesterdayUsageData { get; init; }
+
     public DateTime PeriodStart { get; init; }
 
     public DateTime PeriodEnd { get; init; }

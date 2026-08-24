@@ -69,21 +69,50 @@ public class QuotaSnapshotRepository
 
         if (baseline is null)
         {
-            return CopyUsage(current, 0, 0, 0);
+            return CopyUsage(current, 0, 0, 0, await GetYesterdayUsageAsync(current));
         }
 
         return CopyUsage(
             current,
             PositiveDelta(current.TotalUsedPercent, baseline.TotalPercent),
             PositiveDelta(current.FirstPartyUsedPercent, baseline.FirstPartyPercent),
-            PositiveDelta(current.ApiUsedPercent, baseline.ApiPercent));
+            PositiveDelta(current.ApiUsedPercent, baseline.ApiPercent),
+            await GetYesterdayUsageAsync(current));
+    }
+
+    public async Task<PoolDaySpent?> GetDaySpentForDateAsync(
+        DateTime day,
+        DateTime periodStart,
+        DateTime periodEnd)
+    {
+        await EnsureInitializedAsync();
+
+        var first = await GetFirstSnapshotOfDayAsync(day, periodStart, periodEnd);
+        if (first is null)
+            return null;
+
+        var last = await GetLastSnapshotOfDayAsync(day, periodStart, periodEnd) ?? first;
+
+        return new PoolDaySpent(
+            PositiveDelta(last.TotalPercent, first.TotalPercent),
+            PositiveDelta(last.FirstPartyPercent, first.FirstPartyPercent),
+            PositiveDelta(last.ApiPercent, first.ApiPercent));
+    }
+
+    private async Task<PoolDaySpent?> GetYesterdayUsageAsync(QuotaUsage current)
+    {
+        return await GetDaySpentForDateAsync(
+            DateTime.Today.AddDays(-1),
+            current.PeriodStart,
+            current.PeriodEnd);
     }
 
     private static QuotaUsage CopyUsage(
         QuotaUsage source,
         double todayTotal,
         double todayFirstParty,
-        double todayApi)
+        double todayApi,
+        PoolDaySpent? yesterday)
     {
         return new QuotaUsage
         {
@@ -93,6 +122,10 @@ public class QuotaSnapshotRepository
             TodayTotalUsedPercent = todayTotal,
             TodayFirstPartyUsedPercent = todayFirstParty,
             TodayApiUsedPercent = todayApi,
+            YesterdayTotalUsedPercent = yesterday?.Total ?? 0,
+            YesterdayFirstPartyUsedPercent = yesterday?.FirstParty ?? 0,
+            YesterdayApiUsedPercent = yesterday?.Api ?? 0,
+            HasYesterdayUsageData = yesterday is not null,
             PeriodStart = source.PeriodStart,
             PeriodEnd = source.PeriodEnd,
             RetrievedAt = source.RetrievedAt,
@@ -101,6 +134,46 @@ public class QuotaSnapshotRepository
             ApiUsedAmountUsd = source.ApiUsedAmountUsd,
             ApiRemainingAmountUsd = source.ApiRemainingAmountUsd
         };
+    }
+
+    private async Task<SnapshotRecord?> GetLastSnapshotOfDayAsync(
+        DateTime day,
+        DateTime periodStart,
+        DateTime periodEnd)
+    {
+        await EnsureInitializedAsync();
+
+        var dayStart = day.Date;
+        var dayEnd = dayStart.AddDays(1);
+
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT total_percent, first_party_percent, api_percent
+            FROM quota_snapshots
+            WHERE retrieved_at >= $dayStart
+              AND retrieved_at < $dayEnd
+              AND period_start = $periodStart
+              AND period_end = $periodEnd
+            ORDER BY retrieved_at DESC
+            LIMIT 1;
+            """;
+
+        command.Parameters.AddWithValue("$dayStart", dayStart.ToString("O"));
+        command.Parameters.AddWithValue("$dayEnd", dayEnd.ToString("O"));
+        command.Parameters.AddWithValue("$periodStart", periodStart.ToString("O"));
+        command.Parameters.AddWithValue("$periodEnd", periodEnd.ToString("O"));
+
+        await using var reader = await command.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
+            return null;
+
+        return new SnapshotRecord(
+            reader.GetDouble(0),
+            reader.GetDouble(1),
+            reader.GetDouble(2));
     }
 
     private async Task<SnapshotRecord?> GetFirstSnapshotOfDayAsync(

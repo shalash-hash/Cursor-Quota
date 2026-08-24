@@ -48,6 +48,12 @@
   <data name="TodaySpentFormat" xml:space="preserve">
     <value>Spent today: {0}</value>
   </data>
+  <data name="DailySpentTodayFormat" xml:space="preserve">
+    <value>Today {0}</value>
+  </data>
+  <data name="DailySpentYesterdayFormat" xml:space="preserve">
+    <value>Yesterday {0}</value>
+  </data>
   <data name="TodayRemainingFormat" xml:space="preserve">
     <value>Left for today: {0}</value>
   </data>
