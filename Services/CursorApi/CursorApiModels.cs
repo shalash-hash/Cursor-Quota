@@ -16,6 +16,15 @@ internal sealed class CurrentPeriodUsageResponse
 
 internal sealed class PlanUsage
 {
+    [JsonPropertyName("totalSpend")]
+    public long? TotalSpend { get; set; }
+
+    [JsonPropertyName("includedSpend")]
+    public long? IncludedSpend { get; set; }
+
+    [JsonPropertyName("bonusSpend")]
+    public long? BonusSpend { get; set; }
+
     [JsonPropertyName("totalPercentUsed")]
     public double? TotalPercentUsed { get; set; }
 

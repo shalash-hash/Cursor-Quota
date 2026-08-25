@@ -165,4 +165,52 @@
   <data name="TrayUpdatedFormat" xml:space="preserve">
     <value>Обновлено: {0}</value>
   </data>
+  <data name="ShowStatisticsTooltip" xml:space="preserve">
+    <value>Показать графики</value>
+  </data>
+  <data name="ShowDashboardTooltip" xml:space="preserve">
+    <value>Показать цифры</value>
+  </data>
+  <data name="StatisticsTitle" xml:space="preserve">
+    <value>История расхода</value>
+  </data>
+  <data name="HistoryRangeToday" xml:space="preserve">
+    <value>Сегодня</value>
+  </data>
+  <data name="HistoryRangeWeek" xml:space="preserve">
+    <value>Неделя</value>
+  </data>
+  <data name="HistoryRangeMonth" xml:space="preserve">
+    <value>Месяц</value>
+  </data>
+  <data name="HistoryRangeYear" xml:space="preserve">
+    <value>Год</value>
+  </data>
+  <data name="HistoryRangeAllTime" xml:space="preserve">
+    <value>Всё время</value>
+  </data>
+  <data name="DailyUsageChartTitle" xml:space="preserve">
+    <value>Расход за период</value>
+  </data>
+  <data name="CumulativeUsageChartTitle" xml:space="preserve">
+    <value>Уровень использования (тренд)</value>
+  </data>
+  <data name="StatisticsSnapshotsFormat" xml:space="preserve">
+    <value>{0} снимков в базе</value>
+  </data>
+  <data name="StatisticsEmptyData" xml:space="preserve">
+    <value>Данных пока мало. Оставьте приложение работать, чтобы накопилась история.</value>
+  </data>
+  <data name="StatisticsLegendModels" xml:space="preserve">
+    <value>Модели</value>
+  </data>
+  <data name="StatisticsLegendApi" xml:space="preserve">
+    <value>API</value>
+  </data>
+  <data name="StatisticsBarTooltipFormat" xml:space="preserve">
+    <value>{0}: {1}%</value>
+  </data>
+  <data name="StatisticsBarBreakdownFormat" xml:space="preserve">
+    <value>Модели {0}%, API {1}%</value>
+  </data>
 </root>

@@ -15,6 +15,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     private readonly QuotaCalculator _quotaCalculator;
     private readonly StartupService _startupService;
     private readonly QuotaSnapshotRepository _snapshotRepository;
+    private readonly UsageHistoryService _usageHistoryService;
     private readonly QuotaDiagnosticLogger _logger;
     private readonly QuotaRefreshScheduler _refreshScheduler;
     private readonly UiSettingsService _uiSettingsService;
@@ -77,12 +78,19 @@ public class MainViewModel : ViewModelBase, IDisposable
     private bool _isStartupEnabled;
     private bool _isDarkMode;
     private int _selectedDecimalPlaces;
+    private bool _isStatisticsView;
+    private UsageHistoryRange _selectedHistoryRange = UsageHistoryRange.Week;
+    private IReadOnlyList<UsageHistoryPoint> _usageHistoryPoints = [];
+    private IReadOnlyList<UsageHistoryRangeOption> _historyRangeOptions = [];
+    private string _statisticsSummaryText = string.Empty;
+    private bool _hasStatisticsData;
 
     public MainViewModel(
         IQuotaUsageProvider quotaUsageProvider,
         QuotaCalculator quotaCalculator,
         StartupService startupService,
         QuotaSnapshotRepository snapshotRepository,
+        UsageHistoryService usageHistoryService,
         QuotaDiagnosticLogger logger,
         UiSettingsService uiSettingsService,
         ThemeService themeService,
@@ -92,6 +100,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         _quotaCalculator = quotaCalculator;
         _startupService = startupService;
         _snapshotRepository = snapshotRepository;
+        _usageHistoryService = usageHistoryService;
         _logger = logger;
         _uiSettingsService = uiSettingsService;
         _themeService = themeService;
@@ -107,6 +116,7 @@ public class MainViewModel : ViewModelBase, IDisposable
 
         _isStartupEnabled = _startupService.IsEnabled();
         _refreshScheduler = new QuotaRefreshScheduler(RefreshAsync, TimeSpan.FromMinutes(1));
+        RebuildHistoryRangeOptions();
         ResetDisplayTexts();
         NotifyTrayDisplayChanged();
     }
@@ -161,6 +171,56 @@ public class MainViewModel : ViewModelBase, IDisposable
 
             _themeService.SetDarkMode(value);
         }
+    }
+
+    public bool IsStatisticsView
+    {
+        get => _isStatisticsView;
+        set
+        {
+            if (!SetProperty(ref _isStatisticsView, value))
+                return;
+
+            OnPropertyChanged(nameof(ViewToggleTooltip));
+            if (value)
+                _ = LoadStatisticsAsync();
+        }
+    }
+
+    public string ViewToggleTooltip =>
+        _localizationService[IsStatisticsView ? "ShowDashboardTooltip" : "ShowStatisticsTooltip"];
+
+    public UsageHistoryRange SelectedHistoryRange
+    {
+        get => _selectedHistoryRange;
+        set
+        {
+            if (!SetProperty(ref _selectedHistoryRange, value))
+                return;
+
+            if (IsStatisticsView)
+                _ = LoadStatisticsAsync();
+        }
+    }
+
+    public IReadOnlyList<UsageHistoryRangeOption> HistoryRangeOptions => _historyRangeOptions;
+
+    public IReadOnlyList<UsageHistoryPoint> UsageHistoryPoints
+    {
+        get => _usageHistoryPoints;
+        private set => SetProperty(ref _usageHistoryPoints, value);
+    }
+
+    public string StatisticsSummaryText
+    {
+        get => _statisticsSummaryText;
+        private set => SetProperty(ref _statisticsSummaryText, value);
+    }
+
+    public bool HasStatisticsData
+    {
+        get => _hasStatisticsData;
+        private set => SetProperty(ref _hasStatisticsData, value);
     }
 
     public bool IsRefreshing
@@ -454,6 +514,9 @@ public class MainViewModel : ViewModelBase, IDisposable
                 usage.TotalUsedPercent,
                 usage.FirstPartyUsedPercent,
                 usage.ApiUsedPercent);
+
+            if (IsStatisticsView)
+                await LoadStatisticsAsync().ConfigureAwait(false);
         }
         catch (CursorAuthException ex)
         {
@@ -690,7 +753,75 @@ public class MainViewModel : ViewModelBase, IDisposable
     private void OnLocalizationChanged(object? sender, PropertyChangedEventArgs e)
     {
         OnPropertyChanged(nameof(SelectedLanguage));
+        RebuildHistoryRangeOptions();
+        OnPropertyChanged(nameof(ViewToggleTooltip));
         ResetDisplayTexts();
+
+        if (IsStatisticsView)
+            _ = LoadStatisticsAsync();
+    }
+
+    private async Task LoadStatisticsAsync()
+    {
+        try
+        {
+            var result = await _usageHistoryService.BuildAsync(
+                SelectedHistoryRange,
+                DateTime.Now,
+                _localizationService.CurrentCulture).ConfigureAwait(false);
+
+            RunOnUi(() =>
+            {
+                UsageHistoryPoints = result.Points;
+                HasStatisticsData = result.HasData;
+                StatisticsSummaryText = _localizationService.Format(
+                    "StatisticsSnapshotsFormat",
+                    result.SnapshotCount);
+            });
+        }
+        catch
+        {
+            RunOnUi(() =>
+            {
+                UsageHistoryPoints = [];
+                HasStatisticsData = false;
+                StatisticsSummaryText = _localizationService["StatisticsEmptyData"];
+            });
+        }
+    }
+
+    private void RebuildHistoryRangeOptions()
+    {
+        _historyRangeOptions =
+        [
+            new UsageHistoryRangeOption
+            {
+                Range = UsageHistoryRange.Today,
+                DisplayName = _localizationService["HistoryRangeToday"]
+            },
+            new UsageHistoryRangeOption
+            {
+                Range = UsageHistoryRange.Week,
+                DisplayName = _localizationService["HistoryRangeWeek"]
+            },
+            new UsageHistoryRangeOption
+            {
+                Range = UsageHistoryRange.Month,
+                DisplayName = _localizationService["HistoryRangeMonth"]
+            },
+            new UsageHistoryRangeOption
+            {
+                Range = UsageHistoryRange.Year,
+                DisplayName = _localizationService["HistoryRangeYear"]
+            },
+            new UsageHistoryRangeOption
+            {
+                Range = UsageHistoryRange.AllTime,
+                DisplayName = _localizationService["HistoryRangeAllTime"]
+            }
+        ];
+
+        OnPropertyChanged(nameof(HistoryRangeOptions));
     }
 
     private void ResetDisplayTexts()

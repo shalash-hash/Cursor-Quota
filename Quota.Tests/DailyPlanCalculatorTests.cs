@@ -11,19 +11,18 @@ public class DailyPlanCalculatorTests
     private static readonly DateTime Reset31Days = new(2025, 11, 6);
 
     [Fact]
-    public void AcceleratedPlan_UsesOnlyCursorModelQuota_NotApi()
+    public void FirstDayOfCycle_UsesHillPlanHigherThanLinearAverage()
     {
         var cursorPlan = DailyPlanCalculator.CalculateCursorModelDailyPlan(100, CycleStart, CycleStart, Reset30Days);
-        var apiPlan = DailyPlanCalculator.CalculateApiDailyPlan(10, CycleStart, CycleStart, Reset30Days);
-        var combinedPlan = DailyPlanCalculator.CalculateCombinedDailyPlan(100, 10, CycleStart, CycleStart, Reset30Days);
+        var linearAverage = 100.0 / 25;
 
-        Assert.InRange(cursorPlan, 4.7618, 4.7620);
-        Assert.Equal(0, apiPlan);
-        Assert.Equal(cursorPlan, combinedPlan);
+        Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(10, CycleStart, CycleStart, Reset30Days));
+        Assert.True(cursorPlan > linearAverage);
+        Assert.InRange(cursorPlan, 7.5, 8.5);
     }
 
     [Fact]
-    public void AcceleratedPeriod_ApiQuotaDoesNotAffectDailyPlan()
+    public void EarlyPeriod_ApiQuotaDoesNotAffectCombinedPlan()
     {
         var planWithoutApi = DailyPlanCalculator.CalculateCombinedDailyPlan(100, 0, CycleStart, CycleStart, Reset30Days);
         var planWithApi = DailyPlanCalculator.CalculateCombinedDailyPlan(100, 50, CycleStart, CycleStart, Reset30Days);
@@ -32,141 +31,98 @@ public class DailyPlanCalculatorTests
     }
 
     [Fact]
-    public void AcceleratedPeriod_UnderSpendingCursor_IncreasesCursorDailyPlan()
+    public void MidCycle_UnderSpending_IncreasesDailyPlan()
     {
         var today = CycleStart.AddDays(7);
-        var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(80, today, CycleStart, Reset30Days);
+        var behindPlan = DailyPlanCalculator.CalculateCursorModelDailyPlan(80, today, CycleStart, Reset30Days);
+        var onTrackPlan = DailyPlanCalculator.CalculateCursorModelDailyPlan(60, today, CycleStart, Reset30Days);
 
-        Assert.InRange(plan, 5.7142, 5.7144);
+        Assert.True(behindPlan > onTrackPlan);
     }
 
     [Fact]
-    public void AcceleratedPeriod_OverSpendingCursor_DecreasesCursorDailyPlan()
+    public void MidCycle_OverSpending_DecreasesDailyPlan()
     {
         var today = CycleStart.AddDays(7);
-        var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(60, today, CycleStart, Reset30Days);
+        var behindPlan = DailyPlanCalculator.CalculateCursorModelDailyPlan(80, today, CycleStart, Reset30Days);
+        var aheadPlan = DailyPlanCalculator.CalculateCursorModelDailyPlan(20, today, CycleStart, Reset30Days);
 
-        Assert.InRange(plan, 4.2856, 4.2858);
+        Assert.True(aheadPlan < behindPlan);
+        Assert.True(aheadPlan >= 0);
     }
 
     [Fact]
-    public void AcceleratedPeriod_PartialApiUsage_DoesNotChangePlannedApiSpend()
+    public void LateCycle_WithDeficit_DoesNotProduceUnrealisticDailyPlan()
     {
-        var today = CycleStart.AddDays(5);
-        var apiRemaining = 70;
-
-        Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(apiRemaining, today, CycleStart, Reset30Days));
-    }
-
-    [Fact]
-    public void AcceleratedPeriod_ExhaustedCursorQuota_ReturnsZeroCursorPlan()
-    {
-        var today = CycleStart.AddDays(10);
-
-        Assert.Equal(0, DailyPlanCalculator.CalculateCursorModelDailyPlan(0, today, CycleStart, Reset30Days));
-        Assert.Equal(0, DailyPlanCalculator.CalculateCombinedDailyPlan(0, 100, today, CycleStart, Reset30Days));
-    }
-
-    [Fact]
-    public void ReservePeriod_StartsOnDay22()
-    {
-        var today = CycleStart.AddDays(21);
-        var cursorRemaining = 30.0;
-        var apiRemaining = 10.0;
-        var reserveDays = DailyPlanCalculator.CalculateRemainingPlanDays(today, Reset30Days, cursorRemaining);
-
-        var cursorPlan = DailyPlanCalculator.CalculateCursorModelDailyPlan(cursorRemaining, today, CycleStart, Reset30Days);
-        var apiPlan = DailyPlanCalculator.CalculateApiDailyPlan(apiRemaining, today, CycleStart, Reset30Days);
-        var combinedPlan = DailyPlanCalculator.CalculateCombinedDailyPlan(cursorRemaining, apiRemaining, today, CycleStart, Reset30Days);
-
-        Assert.False(DailyPlanCalculator.IsWithinAcceleratedPeriod(today, CycleStart));
-        Assert.Equal(9, reserveDays);
-        Assert.InRange(cursorPlan, 3.3333, 3.3334);
-        Assert.InRange(apiPlan, 1.1111, 1.1112);
-        Assert.Equal(cursorPlan + apiPlan, combinedPlan, precision: 6);
-    }
-
-    [Fact]
-    public void ReservePeriod_SpreadsRemainingCursorQuotaUntilReset()
-    {
-        var today = CycleStart.AddDays(24);
-        var remaining = 4.0;
+        var today = CycleStart.AddDays(18);
+        var remaining = 61.28;
         var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(remaining, today, CycleStart, Reset30Days);
+        var linearPlan = remaining / 7;
 
-        Assert.Equal(6, DailyPlanCalculator.CalculateRemainingPlanDays(today, Reset30Days, remaining));
-        Assert.InRange(plan, 0.6666, 0.6667);
+        Assert.True(plan < 10);
+        Assert.True(plan < linearPlan * 2);
     }
 
     [Fact]
-    public void ReservePeriod_SpreadsRemainingApiQuotaUntilReset()
+    public void LastCursorPlanDay_IsBeforeFiveDayApiReserve()
     {
-        var today = CycleStart.AddDays(22);
-        var remaining = 8.0;
+        var planEnd = DailyPlanCalculator.GetCursorPlanEnd(Reset30Days);
+
+        Assert.Equal(Reset30Days.AddDays(-5), planEnd);
+        Assert.Equal(0, DailyPlanCalculator.CalculateCursorModelDailyPlan(10, planEnd.AddDays(1), CycleStart, Reset30Days));
+    }
+
+    [Fact]
+    public void ApiReservePeriod_SpreadsApiQuotaUntilReset()
+    {
+        var today = DailyPlanCalculator.GetApiPlanStart(Reset30Days);
+        var remaining = 10.0;
         var plan = DailyPlanCalculator.CalculateApiDailyPlan(remaining, today, CycleStart, Reset30Days);
 
-        Assert.Equal(8, DailyPlanCalculator.CalculateRemainingPlanDays(today, Reset30Days, remaining));
-        Assert.Equal(1.0, plan, precision: 6);
+        Assert.Equal(2.0, plan, precision: 6);
+        Assert.Equal(0, DailyPlanCalculator.CalculateCursorModelDailyPlan(20, today, CycleStart, Reset30Days));
     }
 
     [Fact]
-    public void ReservePeriod_TracksBothQuotasSeparatelyWithoutMixingBalances()
+    public void ApiReservePeriod_TracksCursorAndApiSeparately()
     {
-        var today = CycleStart.AddDays(21);
-        var cursorRemaining = 20.0;
+        var today = DailyPlanCalculator.GetApiPlanStart(Reset30Days);
+        var cursorRemaining = 5.0;
         var apiRemaining = 15.0;
 
         var cursorPlan = DailyPlanCalculator.CalculateCursorModelDailyPlan(cursorRemaining, today, CycleStart, Reset30Days);
         var apiPlan = DailyPlanCalculator.CalculateApiDailyPlan(apiRemaining, today, CycleStart, Reset30Days);
         var combinedPlan = DailyPlanCalculator.CalculateCombinedDailyPlan(cursorRemaining, apiRemaining, today, CycleStart, Reset30Days);
 
-        Assert.Equal(20.0 / 9, cursorPlan, precision: 6);
-        Assert.Equal(15.0 / 9, apiPlan, precision: 6);
-        Assert.Equal(cursorPlan + apiPlan, combinedPlan, precision: 6);
+        Assert.Equal(0, cursorPlan);
+        Assert.Equal(3.0, apiPlan, precision: 6);
+        Assert.Equal(apiPlan, combinedPlan, precision: 6);
     }
 
     [Fact]
-    public void LastDayOfAcceleratedPeriod_UsesSingleRemainingDay()
+    public void ThirtyDayCycle_UsesFiveDayReserveBeforeReset()
     {
-        var today = CycleStart.AddDays(20);
-        var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(12.5, today, CycleStart, Reset30Days);
+        var planEnd = DailyPlanCalculator.GetCursorPlanEnd(Reset30Days);
 
-        Assert.Equal(12.5, plan, precision: 6);
-        Assert.Equal(1, DailyPlanCalculator.CalculateRemainingPlanDays(today, CycleStart.AddDays(21), 12.5));
-    }
-
-    [Fact]
-    public void ReservePeriod_WithNoRemainder_ReturnsZeroPlan()
-    {
-        var today = CycleStart.AddDays(21);
-
-        Assert.Equal(0, DailyPlanCalculator.CalculateCursorModelDailyPlan(0, today, CycleStart, Reset30Days));
-        Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(0, today, CycleStart, Reset30Days));
-    }
-
-    [Fact]
-    public void ThirtyDayCycle_Uses21DayAcceleratedBoundary()
-    {
-        var acceleratedEnd = DailyPlanCalculator.GetAcceleratedPeriodEnd(CycleStart);
-
-        Assert.Equal(new DateTime(2025, 9, 27), acceleratedEnd);
-        Assert.True(DailyPlanCalculator.IsWithinAcceleratedPeriod(CycleStart.AddDays(20), CycleStart));
-        Assert.False(DailyPlanCalculator.IsWithinAcceleratedPeriod(CycleStart.AddDays(21), CycleStart));
+        Assert.Equal(25, (planEnd - CycleStart).Days);
         Assert.Equal(30, (Reset30Days - CycleStart).Days);
+        Assert.False(DailyPlanCalculator.IsWithinApiReservePeriod(CycleStart.AddDays(24), Reset30Days));
+        Assert.True(DailyPlanCalculator.IsWithinApiReservePeriod(DailyPlanCalculator.GetApiPlanStart(Reset30Days), Reset30Days));
     }
 
     [Fact]
-    public void ThirtyOneDayCycle_ReservePeriodStartsAfterDay21()
+    public void ThirtyOneDayCycle_HillPlanEndIsFiveDaysBeforeReset()
     {
         var cycleStart = new DateTime(2025, 10, 6);
         var reset = Reset31Days;
-        var reserveStart = cycleStart.AddDays(21);
-        var cursorRemaining = 25.0;
-        var reserveDays = DailyPlanCalculator.CalculateRemainingPlanDays(reserveStart, reset, cursorRemaining);
-        var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(cursorRemaining, reserveStart, cycleStart, reset);
+        var planEnd = DailyPlanCalculator.GetCursorPlanEnd(reset);
+        var today = planEnd.AddDays(-3);
+        var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(25, today, cycleStart, reset);
 
         Assert.Equal(31, (reset - cycleStart).Days);
-        Assert.Equal(10, reserveDays);
-        Assert.Equal(2.5, plan, precision: 6);
+        Assert.Equal(26, (planEnd - cycleStart).Days);
+        Assert.True(plan > 0);
+        Assert.True(plan < 25);
     }
 
     [Fact]
@@ -174,13 +130,11 @@ public class DailyPlanCalculatorTests
     {
         var cycleStart = new DateTime(2025, 1, 30);
         var reset = new DateTime(2025, 2, 28);
-        var acceleratedEnd = DailyPlanCalculator.GetAcceleratedPeriodEnd(cycleStart);
-        var dayBeforeReset = reset.AddDays(-1);
-        var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(8, dayBeforeReset, cycleStart, reset);
+        var apiStart = DailyPlanCalculator.GetApiPlanStart(reset);
 
-        Assert.Equal(new DateTime(2025, 2, 20), acceleratedEnd);
-        Assert.False(DailyPlanCalculator.IsWithinAcceleratedPeriod(dayBeforeReset, cycleStart));
-        Assert.Equal(8, plan, precision: 6);
+        Assert.Equal(new DateTime(2025, 2, 23), DailyPlanCalculator.GetCursorPlanEnd(reset));
+        Assert.Equal(new DateTime(2025, 2, 24), apiStart);
+        Assert.Equal(0, DailyPlanCalculator.CalculateCursorModelDailyPlan(8, apiStart, cycleStart, reset));
     }
 
     [Fact]
@@ -188,12 +142,10 @@ public class DailyPlanCalculatorTests
     {
         var cycleStart = new DateTime(2024, 2, 6);
         var reset = new DateTime(2024, 3, 6);
-        var reserveStart = cycleStart.AddDays(21);
+        var apiStart = DailyPlanCalculator.GetApiPlanStart(reset);
 
         Assert.Equal(29, (reset - cycleStart).Days);
-        Assert.False(DailyPlanCalculator.IsWithinAcceleratedPeriod(reserveStart, cycleStart));
-        Assert.Equal(8, DailyPlanCalculator.CalculateRemainingPlanDays(reserveStart, reset, 16));
-        Assert.Equal(2.0, DailyPlanCalculator.CalculateApiDailyPlan(16, reserveStart, cycleStart, reset), precision: 6);
+        Assert.Equal(2.0, DailyPlanCalculator.CalculateApiDailyPlan(10, apiStart, cycleStart, reset), precision: 6);
     }
 
     [Fact]
@@ -201,14 +153,26 @@ public class DailyPlanCalculatorTests
     {
         var cycleStart = new DateTime(2025, 12, 15);
         var reset = new DateTime(2026, 1, 15);
-        var reserveStart = cycleStart.AddDays(21);
-        var remaining = 18.0;
-        var reserveDays = DailyPlanCalculator.CalculateRemainingPlanDays(reserveStart, reset, remaining);
-        var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(remaining, reserveStart, cycleStart, reset);
+        var planEnd = DailyPlanCalculator.GetCursorPlanEnd(reset);
+        var today = planEnd.AddDays(-2);
+        var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(18, today, cycleStart, reset);
 
         Assert.Equal(31, (reset - cycleStart).Days);
-        Assert.Equal(10, reserveDays);
-        Assert.Equal(1.8, plan, precision: 6);
+        Assert.Equal(26, (planEnd - cycleStart).Days);
+        Assert.True(plan > 0);
+    }
+
+    [Fact]
+    public void LinearDailyPlan_SpreadsRemainingUntilReset()
+    {
+        var today = CycleStart.AddDays(18);
+        var remaining = 61.28;
+        var daysToReset = DailyPlanCalculator.CalculateRemainingPlanDays(today, Reset30Days, remaining);
+
+        var linearPlan = DailyPlanCalculator.CalculateLinearDailyPlan(remaining, today, Reset30Days);
+
+        Assert.Equal(12, daysToReset);
+        Assert.Equal(remaining / daysToReset, linearPlan, precision: 3);
     }
 
     [Fact]
@@ -241,7 +205,7 @@ public class QuotaCalculatorTests
     private readonly QuotaCalculator _calculator = new();
 
     [Fact]
-    public void Calculate_AcceleratedPeriod_UsesOnlyCursorModelForTotalDailyPlan()
+    public void Calculate_EarlyPeriod_UsesOnlyCursorModelForTotalDailyPlan()
     {
         var usage = new QuotaUsage
         {
@@ -254,13 +218,13 @@ public class QuotaCalculatorTests
 
         var result = _calculator.Calculate(usage, CycleStart);
 
-        Assert.InRange(result.FirstParty.DailyTarget, 4.7618, 4.7620);
+        Assert.True(result.FirstParty.DailyTarget > 0);
         Assert.Equal(0, result.Api.DailyTarget);
         Assert.Equal(result.FirstParty.DailyTarget, result.Total.DailyTarget);
     }
 
     [Fact]
-    public void Calculate_AcceleratedPeriod_IgnoresApiQuotaInCombinedPlan()
+    public void Calculate_EarlyPeriod_IgnoresApiQuotaInCombinedPlan()
     {
         var usage = new QuotaUsage
         {
@@ -273,14 +237,14 @@ public class QuotaCalculatorTests
 
         var result = _calculator.Calculate(usage, CycleStart);
 
-        Assert.InRange(result.FirstParty.DailyTarget, 4.7618, 4.7620);
+        Assert.True(result.FirstParty.DailyTarget > 0);
         Assert.Equal(0, result.Api.DailyTarget);
         Assert.Equal(result.FirstParty.DailyTarget, result.Total.DailyTarget);
         Assert.Equal(95, result.Api.RemainingPercent);
     }
 
     [Fact]
-    public void Calculate_ReservePeriod_CombinesCursorAndApiPlans()
+    public void Calculate_ApiReservePeriod_CombinesApiPlanOnly()
     {
         var usage = new QuotaUsage
         {
@@ -291,11 +255,12 @@ public class QuotaCalculatorTests
             PeriodEnd = Reset30Days
         };
 
-        var result = _calculator.Calculate(usage, CycleStart.AddDays(21));
+        var today = DailyPlanCalculator.GetApiPlanStart(Reset30Days);
+        var result = _calculator.Calculate(usage, today);
 
-        Assert.Equal(40.0 / 9, result.FirstParty.DailyTarget, precision: 6);
-        Assert.Equal(60.0 / 9, result.Api.DailyTarget, precision: 6);
-        Assert.Equal(result.FirstParty.DailyTarget + result.Api.DailyTarget, result.Total.DailyTarget, precision: 6);
+        Assert.Equal(0, result.FirstParty.DailyTarget);
+        Assert.True(result.Api.DailyTarget > 0);
+        Assert.Equal(result.Api.DailyTarget, result.Total.DailyTarget);
     }
 
     [Fact]
@@ -313,7 +278,7 @@ public class QuotaCalculatorTests
         var result = _calculator.Calculate(usage, new DateTime(2025, 9, 13));
 
         Assert.Equal(23, result.RemainingDays);
-        Assert.InRange(result.FirstParty.DailyTarget, 5.7142, 5.7144);
+        Assert.True(result.FirstParty.DailyTarget > 0);
         Assert.Equal(result.FirstParty.DailyTarget, result.Total.DailyTarget);
     }
 

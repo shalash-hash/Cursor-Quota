@@ -21,20 +21,40 @@ public class QuotaCalculator
         var firstParty = CalculatePool(
             usage.FirstPartyUsedPercent,
             usage.TodayFirstPartyUsedPercent,
-            remaining => DailyPlanCalculator.CalculateCursorModelDailyPlan(
-                remaining,
-                today,
-                cycleStart,
-                periodEnd));
+            remaining =>
+            {
+                var hillPlan = DailyPlanCalculator.CalculateCursorModelDailyPlan(
+                    remaining,
+                    today,
+                    cycleStart,
+                    periodEnd);
+
+                if (hillPlan <= 0)
+                    return 0;
+
+                return Math.Max(
+                    hillPlan,
+                    DailyPlanCalculator.CalculateLinearDailyPlan(remaining, today, periodEnd));
+            });
 
         var api = CalculatePool(
             usage.ApiUsedPercent,
             usage.TodayApiUsedPercent,
-            remaining => DailyPlanCalculator.CalculateApiDailyPlan(
-                remaining,
-                today,
-                cycleStart,
-                periodEnd));
+            remaining =>
+            {
+                var spreadPlan = DailyPlanCalculator.CalculateApiDailyPlan(
+                    remaining,
+                    today,
+                    cycleStart,
+                    periodEnd);
+
+                if (spreadPlan <= 0)
+                    return 0;
+
+                return Math.Max(
+                    spreadPlan,
+                    DailyPlanCalculator.CalculateLinearDailyPlan(remaining, today, periodEnd));
+            });
 
         var total = CalculateTotalPool(
             usage.TotalUsedPercent,

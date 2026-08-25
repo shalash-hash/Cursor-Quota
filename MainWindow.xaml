@@ -11,7 +11,7 @@
         Width="840"
         Height="547"
         MinWidth="760"
-        MinHeight="420"
+        MinHeight="480"
         ResizeMode="CanResize"
         Background="{DynamicResource WindowBackgroundBrush}"
         FlowDirection="{Binding CurrentFlowDirection, Source={x:Static loc:LocalizationService.Instance}}"
@@ -76,10 +76,57 @@
                                       Style="{StaticResource ThemeToggleSwitch}"
                                       VerticalAlignment="Center"/>
                     </StackPanel>
+                    <ToggleButton IsChecked="{Binding IsStatisticsView, Mode=TwoWay}"
+                                  ToolTip="{Binding ViewToggleTooltip}"
+                                  Margin="0,0,0,0"
+                                  VerticalAlignment="Center">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton" BasedOn="{StaticResource IconToggleButton}">
+                                <Setter Property="Content">
+                                    <Setter.Value>
+                                        <Viewbox Width="16" Height="16">
+                                            <Canvas Width="20" Height="20">
+                                                <Path Stroke="{DynamicResource PrimaryTextBrush}"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      Data="M2,15 L6,10 L10,12 L14,6 L18,9"/>
+                                                <Path Stroke="{DynamicResource PrimaryTextBrush}"
+                                                      StrokeThickness="1.8"
+                                                      Data="M2,17 L18,17"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter Property="Content">
+                                            <Setter.Value>
+                                                <Viewbox Width="16" Height="16">
+                                                    <Canvas Width="20" Height="20">
+                                                        <Rectangle Width="7" Height="7" Canvas.Left="2" Canvas.Top="2"
+                                                                   Fill="{DynamicResource PrimaryTextBrush}"/>
+                                                        <Rectangle Width="7" Height="7" Canvas.Left="11" Canvas.Top="2"
+                                                                   Fill="{DynamicResource PrimaryTextBrush}"/>
+                                                        <Rectangle Width="7" Height="7" Canvas.Left="2" Canvas.Top="11"
+                                                                   Fill="{DynamicResource PrimaryTextBrush}"/>
+                                                        <Rectangle Width="7" Height="7" Canvas.Left="11" Canvas.Top="11"
+                                                                   Fill="{DynamicResource PrimaryTextBrush}"/>
+                                                    </Canvas>
+                                                </Viewbox>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                    </ToggleButton>
                 </StackPanel>
             </Grid>
 
             <Grid Grid.Row="1">
+                <Grid Visibility="{Binding IsStatisticsView, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="10"/>
@@ -288,6 +335,106 @@
                                Margin="0,4,0,0"
                                TextWrapping="Wrap"/>
                 </StackPanel>
+                </Grid>
+                </Grid>
+
+                <Border Visibility="{Binding IsStatisticsView, Converter={StaticResource BoolToVisibilityConverter}}"
+                        Style="{StaticResource CardBorder}"
+                        Padding="14">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{loc:Loc StatisticsTitle}"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="1"
+                                      ItemsSource="{Binding HistoryRangeOptions}"
+                                      SelectedValue="{Binding SelectedHistoryRange}"
+                                      SelectedValuePath="Range"
+                                      DisplayMemberPath="DisplayName"
+                                      Style="{StaticResource AppComboBox}"
+                                      MinWidth="130"
+                                      Height="28"/>
+                        </Grid>
+
+                        <TextBlock Grid.Row="1"
+                                   Text="{Binding StatisticsSummaryText}"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   Margin="0,0,0,10"/>
+
+                        <Grid Grid.Row="2" MinHeight="320">
+                            <controls:UsageHistoryChart Points="{Binding UsageHistoryPoints}"
+                                                        DecimalPlaces="{Binding SelectedDecimalPlaces}"
+                                                        MinHeight="300">
+                                <controls:UsageHistoryChart.Style>
+                                    <Style TargetType="controls:UsageHistoryChart">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasStatisticsData}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:UsageHistoryChart.Style>
+                            </controls:UsageHistoryChart>
+                            <TextBlock Text="{loc:Loc StatisticsEmptyData}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Center"
+                                       Margin="12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasStatisticsData}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+
+                        <StackPanel Grid.Row="3"
+                                    Orientation="Horizontal"
+                                    Margin="0,10,0,0">
+                            <TextBlock Text="{loc:Loc DailyUsageChartTitle}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       Margin="0,0,16,0"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                                <Rectangle Width="10" Height="10" Fill="{DynamicResource FirstPartyBrush}" RadiusX="2" RadiusY="2" Margin="0,0,6,0"/>
+                                <TextBlock Text="{loc:Loc StatisticsLegendModels}"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                                <Rectangle Width="10" Height="10" Fill="{DynamicResource ApiBrush}" RadiusX="2" RadiusY="2" Margin="0,0,6,0"/>
+                                <TextBlock Text="{loc:Loc StatisticsLegendApi}"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"/>
+                            </StackPanel>
+                            <TextBlock Text="{loc:Loc CumulativeUsageChartTitle}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </Grid>
 
             <Border Grid.Row="2"

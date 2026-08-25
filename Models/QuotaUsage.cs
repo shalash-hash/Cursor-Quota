@@ -35,4 +35,10 @@ public class QuotaUsage
     public decimal? ApiUsedAmountUsd { get; init; }
 
     public decimal? ApiRemainingAmountUsd { get; init; }
+
+    public long? TotalSpendCents { get; init; }
+
+    public long? IncludedSpendCents { get; init; }
+
+    public long? LimitCents { get; init; }
 }

@@ -165,4 +165,52 @@
   <data name="TrayUpdatedFormat" xml:space="preserve">
     <value>Updated: {0}</value>
   </data>
+  <data name="ShowStatisticsTooltip" xml:space="preserve">
+    <value>Show usage charts</value>
+  </data>
+  <data name="ShowDashboardTooltip" xml:space="preserve">
+    <value>Show dashboard</value>
+  </data>
+  <data name="StatisticsTitle" xml:space="preserve">
+    <value>Usage history</value>
+  </data>
+  <data name="HistoryRangeToday" xml:space="preserve">
+    <value>Today</value>
+  </data>
+  <data name="HistoryRangeWeek" xml:space="preserve">
+    <value>Week</value>
+  </data>
+  <data name="HistoryRangeMonth" xml:space="preserve">
+    <value>Month</value>
+  </data>
+  <data name="HistoryRangeYear" xml:space="preserve">
+    <value>Year</value>
+  </data>
+  <data name="HistoryRangeAllTime" xml:space="preserve">
+    <value>All time</value>
+  </data>
+  <data name="DailyUsageChartTitle" xml:space="preserve">
+    <value>Daily usage</value>
+  </data>
+  <data name="CumulativeUsageChartTitle" xml:space="preserve">
+    <value>Usage level (trend)</value>
+  </data>
+  <data name="StatisticsSnapshotsFormat" xml:space="preserve">
+    <value>{0} snapshots in database</value>
+  </data>
+  <data name="StatisticsEmptyData" xml:space="preserve">
+    <value>Not enough data yet. Keep the app running to collect usage history.</value>
+  </data>
+  <data name="StatisticsLegendModels" xml:space="preserve">
+    <value>Models</value>
+  </data>
+  <data name="StatisticsLegendApi" xml:space="preserve">
+    <value>API</value>
+  </data>
+  <data name="StatisticsBarTooltipFormat" xml:space="preserve">
+    <value>{0}: {1}%</value>
+  </data>
+  <data name="StatisticsBarBreakdownFormat" xml:space="preserve">
+    <value>Models {0}%, API {1}%</value>
+  </data>
 </root>

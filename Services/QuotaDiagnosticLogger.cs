@@ -17,13 +17,22 @@ public class QuotaDiagnosticLogger
         _logFilePath = Path.Combine(logsDirectory, "quota.log");
     }
 
-    public void LogRawUsage(double totalPercent, double firstPartyPercent, double apiPercent)
+    public void LogRawUsage(
+        double? legacyTotalPercent,
+        double firstPartyPercent,
+        double apiPercent,
+        long? totalSpendCents,
+        long? includedSpendCents,
+        long? limitCents)
     {
         Write(
             $"[{DateTime.Now:HH:mm:ss}] RAW_USAGE " +
-            $"total={totalPercent.ToString("G17", CultureInfo.InvariantCulture)} " +
+            $"legacy_total={legacyTotalPercent?.ToString("G17", CultureInfo.InvariantCulture) ?? "null"} " +
             $"models={firstPartyPercent.ToString("G17", CultureInfo.InvariantCulture)} " +
-            $"api={apiPercent.ToString("G17", CultureInfo.InvariantCulture)}");
+            $"api={apiPercent.ToString("G17", CultureInfo.InvariantCulture)} " +
+            $"total_spend_cents={totalSpendCents?.ToString(CultureInfo.InvariantCulture) ?? "null"} " +
+            $"included_spend_cents={includedSpendCents?.ToString(CultureInfo.InvariantCulture) ?? "null"} " +
+            $"limit_cents={limitCents?.ToString(CultureInfo.InvariantCulture) ?? "null"}");
     }
 
     public void LogSuccessfulFetch(
@@ -34,6 +43,9 @@ public class QuotaDiagnosticLogger
         double totalPercent,
         double firstPartyPercent,
         double apiPercent,
+        long? totalSpendCents,
+        long? includedSpendCents,
+        long? limitCents,
         decimal? apiIncludedUsd,
         decimal? apiUsedUsd,
         decimal? apiRemainingUsd,
@@ -48,6 +60,15 @@ public class QuotaDiagnosticLogger
         builder.AppendLine($"total_percent={totalPercent.ToString("G17", CultureInfo.InvariantCulture)}");
         builder.AppendLine($"first_party_percent={firstPartyPercent.ToString("G17", CultureInfo.InvariantCulture)}");
         builder.AppendLine($"api_percent={apiPercent.ToString("G17", CultureInfo.InvariantCulture)}");
+
+        if (totalSpendCents is not null)
+            builder.AppendLine($"total_spend_cents={totalSpendCents.Value}");
+
+        if (includedSpendCents is not null)
+            builder.AppendLine($"included_spend_cents={includedSpendCents.Value}");
+
+        if (limitCents is not null)
+            builder.AppendLine($"limit_cents={limitCents.Value}");
 
         if (apiIncludedUsd is not null)
             builder.AppendLine($"api_included_usd={FormatUsd(apiIncludedUsd.Value)}");

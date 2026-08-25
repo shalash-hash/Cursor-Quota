@@ -24,4 +24,8 @@
     <Page Remove="Quota.Tests\**" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Quota.Tests" />
+  </ItemGroup>
+
 </Project>

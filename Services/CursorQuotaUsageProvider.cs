@@ -51,18 +51,19 @@ public class CursorQuotaUsageProvider : IQuotaUsageProvider
         var usage = JsonSerializer.Deserialize<CurrentPeriodUsageResponse>(usageBody, JsonOptions)
             ?? throw new CursorQuotaFetchException("Не удалось разобрать ответ Cursor.");
 
-        if (usage.PlanUsage?.TotalPercentUsed is null
-            || usage.PlanUsage.AutoPercentUsed is null
-            || usage.PlanUsage.ApiPercentUsed is null)
+        if (usage.PlanUsage is null || !CursorPlanUsageMapper.HasRequiredFields(usage.PlanUsage))
         {
             _logger.LogMissingFields(UsageEndpoint);
             throw new CursorQuotaFetchException("Ответ Cursor не содержит ожидаемых полей квоты.");
         }
 
         _logger.LogRawUsage(
-            usage.PlanUsage.TotalPercentUsed.Value,
-            usage.PlanUsage.AutoPercentUsed.Value,
-            usage.PlanUsage.ApiPercentUsed.Value);
+            usage.PlanUsage.TotalPercentUsed,
+            usage.PlanUsage.AutoPercentUsed!.Value,
+            usage.PlanUsage.ApiPercentUsed!.Value,
+            usage.PlanUsage.TotalSpend,
+            usage.PlanUsage.IncludedSpend,
+            usage.PlanUsage.Limit);
 
         string? planName = null;
         long? includedAmountCents = usage.PlanUsage.Limit;
@@ -88,32 +89,12 @@ public class CursorQuotaUsageProvider : IQuotaUsageProvider
         var periodStart = ParseUnixMilliseconds(usage.BillingCycleStart);
         var periodEnd = ParseUnixMilliseconds(usage.BillingCycleEnd);
 
-        decimal? apiIncludedUsd = includedAmountCents is > 0
-            ? includedAmountCents.Value / 100m
-            : null;
-
-        decimal? apiUsedUsd = null;
-        decimal? apiRemainingUsd = null;
-
-        if (apiIncludedUsd is not null)
-        {
-            apiUsedUsd = Math.Round(apiIncludedUsd.Value * (decimal)usage.PlanUsage.ApiPercentUsed.Value / 100m, 2);
-            apiRemainingUsd = Math.Max(0m, apiIncludedUsd.Value - apiUsedUsd.Value);
-        }
-
-        var result = new QuotaUsage
-        {
-            TotalUsedPercent = usage.PlanUsage.TotalPercentUsed.Value,
-            FirstPartyUsedPercent = usage.PlanUsage.AutoPercentUsed.Value,
-            ApiUsedPercent = usage.PlanUsage.ApiPercentUsed.Value,
-            PeriodStart = periodStart,
-            PeriodEnd = periodEnd,
-            RetrievedAt = DateTime.Now,
-            PlanName = planName,
-            ApiIncludedAmountUsd = apiIncludedUsd,
-            ApiUsedAmountUsd = apiUsedUsd,
-            ApiRemainingAmountUsd = apiRemainingUsd
-        };
+        var result = CursorPlanUsageMapper.Map(
+            usage.PlanUsage,
+            periodStart,
+            periodEnd,
+            planName,
+            includedAmountCents);
 
         _logger.LogSuccessfulFetch(
             endpoint: UsageEndpoint,
@@ -123,9 +104,12 @@ public class CursorQuotaUsageProvider : IQuotaUsageProvider
             totalPercent: result.TotalUsedPercent,
             firstPartyPercent: result.FirstPartyUsedPercent,
             apiPercent: result.ApiUsedPercent,
-            apiIncludedUsd: apiIncludedUsd,
-            apiUsedUsd: apiUsedUsd,
-            apiRemainingUsd: apiRemainingUsd,
+            totalSpendCents: result.TotalSpendCents,
+            includedSpendCents: result.IncludedSpendCents,
+            limitCents: result.LimitCents,
+            apiIncludedUsd: result.ApiIncludedAmountUsd,
+            apiUsedUsd: result.ApiUsedAmountUsd,
+            apiRemainingUsd: result.ApiRemainingAmountUsd,
             planName: planName);
 
         return result;

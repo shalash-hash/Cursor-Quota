@@ -28,6 +28,7 @@ public partial class App : WpfApplication
         var quotaCalculator = new QuotaCalculator();
         var startupService = new StartupService();
         var snapshotRepository = new QuotaSnapshotRepository();
+        var usageHistoryService = new UsageHistoryService(snapshotRepository);
         var uiSettingsService = new UiSettingsService();
         var themeService = new ThemeService(uiSettingsService);
         themeService.ApplySavedTheme();
@@ -38,6 +39,7 @@ public partial class App : WpfApplication
             quotaCalculator,
             startupService,
             snapshotRepository,
+            usageHistoryService,
             diagnosticLogger,
             uiSettingsService,
             themeService,
