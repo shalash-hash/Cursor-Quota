@@ -1,4 +1,5 @@
 using System.Globalization;
+using Quota.Helpers;
 using Quota.Models;
 
 namespace Quota.Services;
@@ -43,6 +44,30 @@ public sealed class UsageHistoryService
 
             var dailySpent = AggregateBucketSpent(bucketSnapshots);
             var cumulative = bucketSnapshots[^1].TotalPercent;
+            var lastSnapshot = bucketSnapshots[^1];
+            var modelsSpendCents = AggregateBucketSpendCents(bucketSnapshots);
+            var modelsLimitUsd = ResolveModelsLimitUsd(lastSnapshot);
+            var apiLimitUsd = 20m;
+
+            decimal? modelsUsd;
+            if (modelsSpendCents > 0)
+                modelsUsd = QuotaMonetaryHelper.CentsToUsd(modelsSpendCents);
+            else if (modelsLimitUsd is not null && dailySpent.FirstParty > 0)
+                modelsUsd = QuotaMonetaryHelper.PercentToUsd(dailySpent.FirstParty, modelsLimitUsd.Value);
+            else
+                modelsUsd = null;
+
+            var apiUsd = dailySpent.Api > 0
+                ? QuotaMonetaryHelper.PercentToUsd(dailySpent.Api, apiLimitUsd)
+                : 0m;
+
+            var totalUsd = (modelsUsd ?? 0m) + apiUsd;
+            if (totalUsd <= 0 && dailySpent.Total > 0 && modelsLimitUsd is not null)
+                totalUsd = QuotaMonetaryHelper.PercentToUsd(dailySpent.Total, modelsLimitUsd.Value);
+
+            decimal? cumulativeUsd = lastSnapshot.TotalSpendCents is long cumulativeCents
+                ? QuotaMonetaryHelper.CentsToUsd(cumulativeCents)
+                : null;
 
             points.Add(new UsageHistoryPoint
             {
@@ -52,7 +77,11 @@ public sealed class UsageHistoryService
                 DailySpentPercent = dailySpent.Total,
                 DailyModelsPercent = dailySpent.FirstParty,
                 DailyApiPercent = dailySpent.Api,
-                CumulativeUsedPercent = cumulative
+                CumulativeUsedPercent = cumulative,
+                DailyModelsSpentUsd = modelsUsd,
+                DailyApiSpentUsd = apiUsd > 0 ? apiUsd : null,
+                DailyTotalSpentUsd = totalUsd > 0 ? totalUsd : null,
+                CumulativeSpentUsd = cumulativeUsd
             });
         }
 
@@ -112,6 +141,32 @@ public sealed class UsageHistoryService
         }
 
         return new PoolDaySpent(total, models, api);
+    }
+
+    private static long AggregateBucketSpendCents(IReadOnlyList<QuotaSnapshot> bucketSnapshots)
+    {
+        long total = 0;
+
+        foreach (var periodGroup in bucketSnapshots.GroupBy(snapshot => (snapshot.PeriodStart, snapshot.PeriodEnd)))
+        {
+            var ordered = periodGroup.OrderBy(snapshot => snapshot.RetrievedAt).ToList();
+            if (ordered.Count < 2)
+                continue;
+
+            total += QuotaSnapshotAnalytics.ComputeSummedSpendCentsDelta(
+                ordered.Take(ordered.Count - 1).ToList(),
+                ordered[^1]);
+        }
+
+        return total;
+    }
+
+    private static decimal? ResolveModelsLimitUsd(QuotaSnapshot snapshot)
+    {
+        if (snapshot.TotalSpendCents is not long spendCents || snapshot.FirstPartyPercent <= 0)
+            return null;
+
+        return QuotaMonetaryHelper.EstimateLimitUsd(spendCents, snapshot.FirstPartyPercent);
     }
 
     private static string FormatBucketLabel(

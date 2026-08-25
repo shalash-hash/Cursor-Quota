@@ -117,6 +117,21 @@
   <data name="ApiSpendFormat" xml:space="preserve">
     <value>{0} из {1}</value>
   </data>
+  <data name="EstimatedLimitHint" xml:space="preserve">
+    <value>~ оценка лимита Cursor</value>
+  </data>
+  <data name="TotalRemainingAmountFormat" xml:space="preserve">
+    <value>Осталось ~{0}</value>
+  </data>
+  <data name="DailySpentTodayWithAmountFormat" xml:space="preserve">
+    <value>Сегодня {0} ({1})</value>
+  </data>
+  <data name="DailySpentYesterdayWithAmountFormat" xml:space="preserve">
+    <value>Вчера {0} ({1})</value>
+  </data>
+  <data name="TodayPoolsDetailWithAmountFormat" xml:space="preserve">
+    <value>Сегодня: модели {0} ({1}), API {2} ({3})</value>
+  </data>
   <data name="DaysPatternZero" xml:space="preserve">
     <value>{0} дней</value>
   </data>
@@ -208,9 +223,12 @@
     <value>API</value>
   </data>
   <data name="StatisticsBarTooltipFormat" xml:space="preserve">
-    <value>{0}: {1}%</value>
+    <value>{0}: {1} ({2})</value>
   </data>
   <data name="StatisticsBarBreakdownFormat" xml:space="preserve">
-    <value>Модели {0}%, API {1}%</value>
+    <value>Модели {0} ({1}), API {2} ({3})</value>
+  </data>
+  <data name="StatisticsCumulativeTooltipFormat" xml:space="preserve">
+    <value>Накоплено: {0} ({1})</value>
   </data>
 </root>

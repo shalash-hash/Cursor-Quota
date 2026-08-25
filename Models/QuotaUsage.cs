@@ -41,4 +41,18 @@ public class QuotaUsage
     public long? IncludedSpendCents { get; init; }
 
     public long? LimitCents { get; init; }
+
+    /// Потрачено по пулу моделей (из total_spend_cents API).
+    public decimal? ModelsUsedUsd { get; init; }
+
+    /// Оценка месячного лимита моделей: spend × 100 / percent.
+    public decimal? ModelsEstimatedLimitUsd { get; init; }
+
+    public decimal? ModelsEstimatedRemainingUsd { get; init; }
+
+    public long? TodayModelsSpendCents { get; init; }
+
+    public long? YesterdayModelsSpendCents { get; init; }
+
+    public bool HasYesterdaySpendData { get; init; }
 }

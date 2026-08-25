@@ -1,3 +1,4 @@
+using Quota.Helpers;
 using Quota.Localization;
 using Quota.Models;
 
@@ -62,6 +63,22 @@ public static class TrayDisplayFormatter
             localization.Format("TrayMenuModelsFormat", modelsPercent),
             localization.Format("TrayMenuApiFormat", apiPercent)
         };
+
+        if (usage.ModelsUsedUsd is not null)
+        {
+            menuLines.Add(QuotaMonetaryHelper.FormatSpendRange(
+                usage.ModelsUsedUsd.Value,
+                usage.ModelsEstimatedLimitUsd,
+                culture));
+        }
+
+        if (usage.ApiUsedAmountUsd is not null && usage.ApiIncludedAmountUsd is not null)
+        {
+            menuLines.Add(localization.Format(
+                "ApiSpendFormat",
+                QuotaMonetaryHelper.FormatUsd(usage.ApiUsedAmountUsd.Value, culture),
+                QuotaMonetaryHelper.FormatUsd(usage.ApiIncludedAmountUsd.Value, culture)));
+        }
 
         if (lastSuccessfulUpdate is not null)
         {

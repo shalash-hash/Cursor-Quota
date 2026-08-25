@@ -71,6 +71,35 @@ internal static class QuotaSnapshotAnalytics
         return deltaPercent > 0 || lastSpend > firstSpend;
     }
 
+  public static long ComputeSummedSpendCentsDelta(
+        IReadOnlyList<QuotaSnapshot> priorSnapshots,
+        QuotaSnapshot current)
+    {
+        if (priorSnapshots.Count == 0)
+            return 0;
+
+        var points = new List<QuotaSnapshot>(priorSnapshots.Count + 1);
+        points.AddRange(priorSnapshots);
+        points.Add(current);
+
+        if (points.Count < 2)
+            return 0;
+
+        long total = 0;
+        for (var i = 1; i < points.Count; i++)
+            total += PositiveSpendDelta(points[i - 1].TotalSpendCents, points[i].TotalSpendCents);
+
+        return total;
+    }
+
+    private static long PositiveSpendDelta(long? baseline, long? current)
+    {
+        if (baseline is not long first || current is not long last)
+            return 0;
+
+        return Math.Max(0, last - first);
+    }
+
     private static double PositiveDelta(double current, double baseline) =>
         Math.Max(0, current - baseline);
 }

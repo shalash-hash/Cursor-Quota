@@ -15,4 +15,12 @@ public sealed class UsageHistoryPoint
     public double DailyApiPercent { get; init; }
 
     public double CumulativeUsedPercent { get; init; }
+
+    public decimal? DailyModelsSpentUsd { get; init; }
+
+    public decimal? DailyApiSpentUsd { get; init; }
+
+    public decimal? DailyTotalSpentUsd { get; init; }
+
+    public decimal? CumulativeSpentUsd { get; init; }
 }

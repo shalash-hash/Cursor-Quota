@@ -52,18 +52,6 @@
                               Height="28"
                               Margin="0,0,10,0"
                               VerticalContentAlignment="Center"/>
-                    <TextBlock Text="{loc:Loc PrecisionLabel}"
-                               FontSize="12"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,6,0"/>
-                    <ComboBox ItemsSource="{Binding PrecisionOptions}"
-                              SelectedItem="{Binding SelectedDecimalPlaces}"
-                              Style="{StaticResource AppComboBox}"
-                              Width="58"
-                              Height="28"
-                              Margin="0,0,10,0"
-                              VerticalContentAlignment="Center"/>
                     <StackPanel Orientation="Horizontal"
                                 VerticalAlignment="Center"
                                 Margin="0,0,10,0">
@@ -154,7 +142,17 @@
                                    Foreground="{DynamicResource SecondaryTextBrush}"
                                    HorizontalAlignment="Center"
                                    TextWrapping="Wrap"
-                                   Margin="0,2,0,10"/>
+                                   Margin="0,2,0,2"/>
+                        <TextBlock Text="{Binding TotalSpendText}"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding EstimatedLimitHintText}"
+                                   FontSize="10"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,8"/>
                         <ProgressBar Value="{Binding TotalProgressValue, Mode=OneWay}"
                                      Maximum="100"
                                      Height="8"
@@ -171,6 +169,20 @@
                                    FontSize="13"
                                    Foreground="{DynamicResource PrimaryTextBrush}"
                                    Margin="0,0,0,2"/>
+                        <TextBlock Text="{Binding TotalRemainingAmountText}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   Margin="0,0,0,2">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding TotalRemainingAmountText}" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <TextBlock Text="{Binding DaysUntilResetText}"
                                    FontSize="13"
                                    Foreground="{DynamicResource PrimaryTextBrush}"
@@ -242,7 +254,22 @@
                                    FontSize="11"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
                                    TextWrapping="Wrap"
-                                   Margin="0,0,0,6"/>
+                                   Margin="0,0,0,2"/>
+                        <TextBlock Text="{Binding FirstPartySpendText}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   Margin="0,0,0,6">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding FirstPartySpendText}" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <ProgressBar Value="{Binding FirstPartyProgressValue, Mode=OneWay}"
                                      Maximum="100"
                                      Height="8"

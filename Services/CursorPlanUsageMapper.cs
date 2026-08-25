@@ -1,3 +1,4 @@
+using Quota.Helpers;
 using Quota.Models;
 using Quota.Services.CursorApi;
 
@@ -33,6 +34,17 @@ internal static class CursorPlanUsageMapper
             apiRemainingUsd = Math.Max(0m, apiIncludedUsd.Value - apiUsedUsd.Value);
         }
 
+        decimal? modelsUsedUsd = null;
+        decimal? modelsEstimatedLimitUsd = null;
+        decimal? modelsEstimatedRemainingUsd = null;
+
+        if (totalSpendCents is long spendCents)
+        {
+            modelsUsedUsd = QuotaMonetaryHelper.CentsToUsd(spendCents);
+            modelsEstimatedLimitUsd = QuotaMonetaryHelper.EstimateLimitUsd(spendCents, autoPercent);
+            modelsEstimatedRemainingUsd = QuotaMonetaryHelper.EstimateRemainingUsd(spendCents, autoPercent);
+        }
+
         return new QuotaUsage
         {
             TotalUsedPercent = totalPercent,
@@ -47,7 +59,10 @@ internal static class CursorPlanUsageMapper
             ApiRemainingAmountUsd = apiRemainingUsd,
             TotalSpendCents = totalSpendCents,
             IncludedSpendCents = includedSpendCents,
-            LimitCents = limitCents
+            LimitCents = limitCents,
+            ModelsUsedUsd = modelsUsedUsd,
+            ModelsEstimatedLimitUsd = modelsEstimatedLimitUsd,
+            ModelsEstimatedRemainingUsd = modelsEstimatedRemainingUsd
         };
     }
 

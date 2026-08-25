@@ -121,12 +121,41 @@ public class QuotaSnapshotRepository
             }
         }
 
+        var todaySpendCents = QuotaSnapshotAnalytics.ComputeSummedSpendCentsDelta(
+            priorSnapshots,
+            currentSnapshot);
+
+        var yesterdaySpend = await GetYesterdaySpendCentsAsync(current);
+
         return CopyUsage(
             current,
             today.Total,
             today.FirstParty,
             today.Api,
-            await GetYesterdayUsageAsync(current));
+            todaySpendCents,
+            await GetYesterdayUsageAsync(current),
+            yesterdaySpend);
+    }
+
+    private async Task<long?> GetYesterdaySpendCentsAsync(QuotaUsage current)
+    {
+        var yesterday = DateTime.Today.AddDays(-1);
+        var first = await GetFirstSnapshotOfDayAsync(
+            yesterday,
+            current.PeriodStart,
+            current.PeriodEnd);
+        if (first is null)
+            return null;
+
+        var last = await GetLastSnapshotOfDayAsync(
+            yesterday,
+            current.PeriodStart,
+            current.PeriodEnd) ?? first;
+
+        if (first.TotalSpendCents is not long baseline || last.TotalSpendCents is not long ending)
+            return null;
+
+        return Math.Max(0, ending - baseline);
     }
 
     public async Task<PoolDaySpent?> GetDaySpentForDateAsync(
@@ -214,7 +243,9 @@ public class QuotaSnapshotRepository
         double todayTotal,
         double todayFirstParty,
         double todayApi,
-        PoolDaySpent? yesterday)
+        long todayModelsSpendCents,
+        PoolDaySpent? yesterday,
+        long? yesterdayModelsSpendCents)
     {
         return new QuotaUsage
         {
@@ -237,7 +268,13 @@ public class QuotaSnapshotRepository
             ApiRemainingAmountUsd = source.ApiRemainingAmountUsd,
             TotalSpendCents = source.TotalSpendCents,
             IncludedSpendCents = source.IncludedSpendCents,
-            LimitCents = source.LimitCents
+            LimitCents = source.LimitCents,
+            ModelsUsedUsd = source.ModelsUsedUsd,
+            ModelsEstimatedLimitUsd = source.ModelsEstimatedLimitUsd,
+            ModelsEstimatedRemainingUsd = source.ModelsEstimatedRemainingUsd,
+            TodayModelsSpendCents = todayModelsSpendCents > 0 ? todayModelsSpendCents : null,
+            YesterdayModelsSpendCents = yesterdayModelsSpendCents,
+            HasYesterdaySpendData = yesterdayModelsSpendCents is not null
         };
     }
 

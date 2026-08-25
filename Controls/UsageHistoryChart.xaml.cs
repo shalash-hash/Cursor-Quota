@@ -41,7 +41,6 @@ public partial class UsageHistoryChart : UserControl
     private const double TopPadding = 12;
     private const double BottomPadding = 28;
     private const double SectionGap = 18;
-    private const int TooltipDecimalPlaces = 2;
     private const double TooltipHeadroom = 56;
 
     private UIElement? _hoverPopup;
@@ -323,10 +322,8 @@ public partial class UsageHistoryChart : UserControl
             ChartCanvas.Children.Remove(_hoverPopup);
 
         var culture = LocalizationService.Instance.CurrentCulture;
-        var totalText = point.DailySpentPercent.ToString(
-            $"F{TooltipDecimalPlaces}",
-            culture);
         var localization = LocalizationService.Instance;
+        var digits = QuotaMonetaryHelper.DisplayDecimalPlaces;
 
         var content = new StackPanel();
         content.Children.Add(new TextBlock
@@ -334,7 +331,10 @@ public partial class UsageHistoryChart : UserControl
             Text = localization.Format(
                 "StatisticsBarTooltipFormat",
                 string.IsNullOrWhiteSpace(point.TooltipLabel) ? point.Label : point.TooltipLabel,
-                totalText),
+                PercentageFormatter.Format(point.DailySpentPercent, digits, culture),
+                point.DailyTotalSpentUsd is not null
+                    ? QuotaMonetaryHelper.FormatUsd(point.DailyTotalSpentUsd.Value, culture)
+                    : "—"),
             FontSize = 11,
             FontWeight = FontWeights.SemiBold,
             Foreground = GetBrush("PrimaryTextBrush")
@@ -342,11 +342,37 @@ public partial class UsageHistoryChart : UserControl
 
         if (point.DailyModelsPercent > 0.001 || point.DailyApiPercent > 0.001)
         {
-            var modelsText = point.DailyModelsPercent.ToString($"F{TooltipDecimalPlaces}", culture);
-            var apiText = point.DailyApiPercent.ToString($"F{TooltipDecimalPlaces}", culture);
+            var modelsPercent = PercentageFormatter.Format(point.DailyModelsPercent, digits, culture);
+            var apiPercent = PercentageFormatter.Format(point.DailyApiPercent, digits, culture);
+            var modelsAmount = point.DailyModelsSpentUsd is not null
+                ? QuotaMonetaryHelper.FormatUsd(point.DailyModelsSpentUsd.Value, culture)
+                : "—";
+            var apiAmount = point.DailyApiSpentUsd is not null
+                ? QuotaMonetaryHelper.FormatUsd(point.DailyApiSpentUsd.Value, culture)
+                : "—";
+
             content.Children.Add(new TextBlock
             {
-                Text = localization.Format("StatisticsBarBreakdownFormat", modelsText, apiText),
+                Text = localization.Format(
+                    "StatisticsBarBreakdownFormat",
+                    modelsPercent,
+                    modelsAmount,
+                    apiPercent,
+                    apiAmount),
+                FontSize = 10,
+                Foreground = GetBrush("SecondaryTextBrush"),
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+        }
+
+        if (point.CumulativeSpentUsd is not null)
+        {
+            content.Children.Add(new TextBlock
+            {
+                Text = localization.Format(
+                    "StatisticsCumulativeTooltipFormat",
+                    PercentageFormatter.Format(point.CumulativeUsedPercent, digits, culture),
+                    QuotaMonetaryHelper.FormatUsd(point.CumulativeSpentUsd.Value, culture)),
                 FontSize = 10,
                 Foreground = GetBrush("SecondaryTextBrush"),
                 Margin = new Thickness(0, 2, 0, 0)

@@ -5,7 +5,7 @@ namespace Quota.Services;
 public sealed class UiSettings
 {
     [JsonPropertyName("percentageDecimalPlaces")]
-    public int PercentageDecimalPlaces { get; set; } = 1;
+    public int PercentageDecimalPlaces { get; set; } = 2;
 
     [JsonPropertyName("preferredLanguage")]
     public string? PreferredLanguage { get; set; }
