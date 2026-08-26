@@ -9,9 +9,25 @@ public class RemainingTimeFormatterTests
     private readonly ILocalizationService _localization = new FakeLocalization();
 
     [Fact]
-    public void Format_FullDays_UsesWholeDays()
+    public void Format_FullDays_CountsPartialLastDay()
     {
         var text = RemainingTimeFormatter.Format(TimeSpan.FromHours(47), _localization);
+
+        Assert.Equal("2 days", text);
+    }
+
+    [Fact]
+    public void Format_TenDaysAndChange_ShowsElevenDays()
+    {
+        var text = RemainingTimeFormatter.Format(TimeSpan.FromDays(10) + TimeSpan.FromHours(11), _localization);
+
+        Assert.Equal("11 days", text);
+    }
+
+    [Fact]
+    public void Format_ExactlyOneDay_ShowsOneDay()
+    {
+        var text = RemainingTimeFormatter.Format(TimeSpan.FromDays(1), _localization);
 
         Assert.Equal("1 day", text);
     }

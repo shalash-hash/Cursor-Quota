@@ -10,7 +10,10 @@ public static class RemainingTimeFormatter
             remaining = TimeSpan.Zero;
 
         if (remaining.TotalDays >= 1)
-            return PercentageFormatter.FormatUnit((int)remaining.TotalDays, "DaysPattern", localization);
+        {
+            var days = (int)Math.Ceiling(remaining.TotalDays);
+            return PercentageFormatter.FormatUnit(days, "DaysPattern", localization);
+        }
 
         if (remaining.TotalHours >= 1)
             return PercentageFormatter.FormatUnit((int)remaining.TotalHours, "HoursPattern", localization);
