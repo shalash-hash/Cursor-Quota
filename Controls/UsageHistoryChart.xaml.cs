@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -324,21 +325,25 @@ public partial class UsageHistoryChart : UserControl
         var culture = LocalizationService.Instance.CurrentCulture;
         var localization = LocalizationService.Instance;
         var digits = QuotaMonetaryHelper.DisplayDecimalPlaces;
+        var primaryBrush = GetBrush("PrimaryTextBrush");
+        var secondaryBrush = GetBrush("SecondaryTextBrush");
+        var usdBrush = GetBrush("SpentYesterdayBrush");
 
         var content = new StackPanel();
-        content.Children.Add(new TextBlock
-        {
-            Text = localization.Format(
-                "StatisticsBarTooltipFormat",
-                string.IsNullOrWhiteSpace(point.TooltipLabel) ? point.Label : point.TooltipLabel,
-                PercentageFormatter.Format(point.DailySpentPercent, digits, culture),
-                point.DailyTotalSpentUsd is not null
-                    ? QuotaMonetaryHelper.FormatUsd(point.DailyTotalSpentUsd.Value, culture)
-                    : "—"),
-            FontSize = 11,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = GetBrush("PrimaryTextBrush")
-        });
+        var label = string.IsNullOrWhiteSpace(point.TooltipLabel) ? point.Label : point.TooltipLabel;
+        var totalPercent = PercentageFormatter.Format(point.DailySpentPercent, digits, culture);
+        var totalUsd = point.DailyTotalSpentUsd is not null
+            ? QuotaMonetaryHelper.FormatUsd(point.DailyTotalSpentUsd.Value, culture)
+            : "—";
+
+        content.Children.Add(CreateTooltipLine(
+            $"{label}: ",
+            totalPercent,
+            totalUsd,
+            primaryBrush,
+            usdBrush,
+            fontSize: 11,
+            fontWeight: FontWeights.SemiBold));
 
         if (point.DailyModelsPercent > 0.001 || point.DailyApiPercent > 0.001)
         {
@@ -351,32 +356,30 @@ public partial class UsageHistoryChart : UserControl
                 ? QuotaMonetaryHelper.FormatUsd(point.DailyApiSpentUsd.Value, culture)
                 : "—";
 
-            content.Children.Add(new TextBlock
-            {
-                Text = localization.Format(
-                    "StatisticsBarBreakdownFormat",
-                    modelsPercent,
-                    modelsAmount,
-                    apiPercent,
-                    apiAmount),
-                FontSize = 10,
-                Foreground = GetBrush("SecondaryTextBrush"),
-                Margin = new Thickness(0, 2, 0, 0)
-            });
+            content.Children.Add(CreateBreakdownTooltipLine(
+                localization["StatisticsLegendModels"],
+                modelsPercent,
+                modelsAmount,
+                localization["StatisticsLegendApi"],
+                apiPercent,
+                apiAmount,
+                secondaryBrush,
+                usdBrush));
         }
 
         if (point.CumulativeSpentUsd is not null)
         {
-            content.Children.Add(new TextBlock
-            {
-                Text = localization.Format(
-                    "StatisticsCumulativeTooltipFormat",
-                    PercentageFormatter.Format(point.CumulativeUsedPercent, digits, culture),
-                    QuotaMonetaryHelper.FormatUsd(point.CumulativeSpentUsd.Value, culture)),
-                FontSize = 10,
-                Foreground = GetBrush("SecondaryTextBrush"),
-                Margin = new Thickness(0, 2, 0, 0)
-            });
+            var cumulativePercent = PercentageFormatter.Format(point.CumulativeUsedPercent, digits, culture);
+            var cumulativeUsd = QuotaMonetaryHelper.FormatUsd(point.CumulativeSpentUsd.Value, culture);
+
+            content.Children.Add(CreateTooltipLine(
+                $"{localization["StatisticsCumulativeLabel"]}: ",
+                cumulativePercent,
+                cumulativeUsd,
+                secondaryBrush,
+                usdBrush,
+                fontSize: 10,
+                margin: new Thickness(0, 2, 0, 0)));
         }
 
         var popup = new Border
@@ -403,6 +406,71 @@ public partial class UsageHistoryChart : UserControl
         ChartCanvas.Children.Add(popup);
         _hoverPopup = popup;
         _hoverPopupBounds = new Rect(left, tooltipTop, popupWidth, popupHeight);
+    }
+
+    private static TextBlock CreateTooltipLine(
+        string prefix,
+        string percentText,
+        string usdText,
+        Brush textBrush,
+        Brush usdBrush,
+        double fontSize,
+        FontWeight? fontWeight = null,
+        Thickness? margin = null)
+    {
+        var block = new TextBlock
+        {
+            FontSize = fontSize,
+            Margin = margin ?? new Thickness(0)
+        };
+
+        if (fontWeight is not null)
+            block.FontWeight = fontWeight.Value;
+
+        block.Inlines.Add(new Run(prefix) { Foreground = textBrush });
+        block.Inlines.Add(new Run(percentText) { Foreground = textBrush });
+        AppendUsdInParens(block, usdText, textBrush, usdBrush);
+        return block;
+    }
+
+    private static TextBlock CreateBreakdownTooltipLine(
+        string modelsLabel,
+        string modelsPercent,
+        string modelsUsd,
+        string apiLabel,
+        string apiPercent,
+        string apiUsd,
+        Brush textBrush,
+        Brush usdBrush)
+    {
+        var block = new TextBlock
+        {
+            FontSize = 10,
+            Margin = new Thickness(0, 2, 0, 0)
+        };
+
+        block.Inlines.Add(new Run($"{modelsLabel} ") { Foreground = textBrush });
+        block.Inlines.Add(new Run(modelsPercent) { Foreground = textBrush });
+        AppendUsdInParens(block, modelsUsd, textBrush, usdBrush);
+        block.Inlines.Add(new Run($", {apiLabel} ") { Foreground = textBrush });
+        block.Inlines.Add(new Run(apiPercent) { Foreground = textBrush });
+        AppendUsdInParens(block, apiUsd, textBrush, usdBrush);
+        return block;
+    }
+
+    private static void AppendUsdInParens(
+        TextBlock block,
+        string usdText,
+        Brush textBrush,
+        Brush usdBrush)
+    {
+        block.Inlines.Add(new Run(" (") { Foreground = textBrush });
+        block.Inlines.Add(new Run(usdText)
+        {
+            Foreground = usdBrush,
+            FontWeight = FontWeights.SemiBold
+        });
+        block.Inlines.Add(new Run(")") { Foreground = textBrush });
     }
 
     private void ScheduleHideBarHover()

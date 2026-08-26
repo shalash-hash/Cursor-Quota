@@ -52,11 +52,11 @@ public sealed class UiSettingsService
             PreferredLanguage = string.IsNullOrWhiteSpace(settings.PreferredLanguage)
                 ? existing.PreferredLanguage
                 : settings.PreferredLanguage,
-            WindowWidth = SanitizeWindowSize(
+            WindowWidth = ResolveWindowSize(
                 settings.WindowWidth ?? existing.WindowWidth,
                 MinWindowWidth,
                 DefaultWindowWidth),
-            WindowHeight = SanitizeWindowSize(
+            WindowHeight = ResolveWindowSize(
                 settings.WindowHeight ?? existing.WindowHeight,
                 MinWindowHeight,
                 DefaultWindowHeight),
@@ -67,11 +67,17 @@ public sealed class UiSettingsService
         File.WriteAllText(_settingsPath, json);
     }
 
-    private static double SanitizeWindowSize(double? value, double min, double fallback)
+    public static double? SanitizeWindowSize(double? value, double min, double? fallback = null)
     {
-        if (value is null || value < min || value > 4000)
+        if (value is null || double.IsNaN(value.Value) || double.IsInfinity(value.Value))
+            return fallback;
+
+        if (value < min || value > 4000)
             return fallback;
 
         return value.Value;
     }
+
+    private static double ResolveWindowSize(double? value, double min, double fallback)
+        => SanitizeWindowSize(value, min, fallback) ?? fallback;
 }

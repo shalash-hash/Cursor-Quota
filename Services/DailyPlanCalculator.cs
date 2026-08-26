@@ -1,3 +1,5 @@
+using Quota.Helpers;
+
 namespace Quota.Services;
 
 public static class DailyPlanCalculator
@@ -5,29 +7,16 @@ public static class DailyPlanCalculator
     public const int CursorModelReserveDaysBeforeReset = 5;
 
     public static DateTime GetCursorPlanEnd(DateTime realResetDate)
-        => realResetDate.Date.AddDays(-CursorModelReserveDaysBeforeReset);
+        => realResetDate.AddDays(-CursorModelReserveDaysBeforeReset);
 
     public static DateTime GetApiPlanStart(DateTime realResetDate)
         => GetCursorPlanEnd(realResetDate).AddDays(1);
 
     public static bool IsWithinApiReservePeriod(DateTime today, DateTime realResetDate)
-        => today.Date > GetCursorPlanEnd(realResetDate);
+        => today > GetCursorPlanEnd(realResetDate);
 
     public static int CalculateRemainingPlanDays(DateTime today, DateTime planEnd, double remainingPercent)
-    {
-        today = today.Date;
-        planEnd = planEnd.Date;
-
-        if (planEnd < today)
-            return 0;
-
-        var days = (planEnd - today).Days;
-
-        if (days == 0 && remainingPercent > 0)
-            return 1;
-
-        return Math.Max(0, days);
-    }
+        => BillingCycleCalendar.CountRemainingDays(today, planEnd, remainingPercent);
 
     public static double CalculateLinearDailyPlan(
         double remainingPercent,
@@ -38,8 +27,8 @@ public static class DailyPlanCalculator
             return 0;
 
         var remainingDays = CalculateRemainingPlanDays(
-            today.Date,
-            realResetDate.Date,
+            today,
+            realResetDate,
             remainingPercent);
 
         if (remainingDays <= 0)
@@ -57,10 +46,6 @@ public static class DailyPlanCalculator
         if (cursorRemaining <= 0)
             return 0;
 
-        today = today.Date;
-        cycleStart = cycleStart.Date;
-        realResetDate = realResetDate.Date;
-
         var planEnd = ResolveCursorPlanEnd(cycleStart, realResetDate);
         if (today > planEnd)
             return 0;
@@ -76,9 +61,6 @@ public static class DailyPlanCalculator
     {
         if (apiRemaining <= 0)
             return 0;
-
-        today = today.Date;
-        realResetDate = realResetDate.Date;
 
         if (!IsWithinApiReservePeriod(today, realResetDate))
             return 0;
@@ -161,13 +143,10 @@ public static class DailyPlanCalculator
 
     private static int CalculateReserveRemainingDays(DateTime today, DateTime realResetDate, double remainingPercent)
     {
-        today = today.Date;
-        realResetDate = realResetDate.Date;
-
         if (realResetDate < today)
-            return 0;
+            return remainingPercent > 0 ? 1 : 0;
 
-        var days = (realResetDate - today).Days + 1;
+        var days = (int)(realResetDate - today).TotalDays + 1;
 
         if (days <= 0 && remainingPercent > 0)
             return 1;

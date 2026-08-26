@@ -1,3 +1,4 @@
+using Quota.Helpers;
 using Quota.Models;
 
 namespace Quota.Services;
@@ -9,14 +10,16 @@ public class QuotaCalculator
     public QuotaCalculationResult Calculate(QuotaUsage usage, DateTime? referenceTime = null)
     {
         var now = referenceTime ?? DateTime.Now;
-        var today = now.Date;
-        var cycleStart = usage.PeriodStart.Date;
-        var periodEnd = usage.PeriodEnd.Date;
+        var today = now;
+        var cycleStart = usage.PeriodStart;
+        var periodEnd = usage.PeriodEnd;
+        var totalUsedPercent = QuotaMonetaryHelper.ResolveCombinedUsedPercent(usage)
+            ?? usage.TotalUsedPercent;
 
         var remainingDays = DailyPlanCalculator.CalculateRemainingPlanDays(
             today,
             periodEnd,
-            Math.Max(0, 100 - usage.TotalUsedPercent));
+            Math.Max(0, 100 - totalUsedPercent));
 
         var firstParty = CalculatePool(
             usage.FirstPartyUsedPercent,
@@ -57,7 +60,7 @@ public class QuotaCalculator
             });
 
         var total = CalculateTotalPool(
-            usage.TotalUsedPercent,
+            totalUsedPercent,
             usage.TodayTotalUsedPercent,
             firstParty.DailyTarget + api.DailyTarget);
 

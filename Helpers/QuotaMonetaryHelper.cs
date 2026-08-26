@@ -1,4 +1,5 @@
 using System.Globalization;
+using Quota.Models;
 
 namespace Quota.Helpers;
 
@@ -44,6 +45,21 @@ public static class QuotaMonetaryHelper
         return Math.Round(limitUsd * (decimal)percent / 100m, DisplayDecimalPlaces, MidpointRounding.AwayFromZero);
     }
 
+    /// Если есть расход в центах — берём его; иначе оцениваем по проценту и лимиту.
+    public static decimal? ResolveDaySpendUsd(
+        long? spendCents,
+        double percent,
+        decimal? modelsLimitUsd)
+    {
+        if (spendCents is > 0)
+            return CentsToUsd(spendCents.Value);
+
+        if (modelsLimitUsd is null)
+            return null;
+
+        return PercentToUsd(percent, modelsLimitUsd.Value);
+    }
+
     public static string FormatUsd(decimal value, CultureInfo culture) =>
         PercentageFormatter.FormatUsd(value, culture);
 
@@ -73,4 +89,102 @@ public static class QuotaMonetaryHelper
         var amountText = FormatUsd(PercentToUsd(percent, limitUsd.Value), culture);
         return string.Format(culture, "{0} ({1})", percentText, amountText);
     }
+
+    public static CombinedQuotaDisplay ResolveCombinedDisplay(QuotaUsage usage)
+    {
+        var usedUsd = ResolveCombinedUsedUsd(usage);
+        var limitUsd = ResolveCombinedLimitUsd(usage);
+        var usedPercent = ResolveCombinedUsedPercent(usage) ?? usage.TotalUsedPercent;
+        var remainingPercent = Math.Max(0, 100 - usedPercent);
+
+        decimal? remainingUsd = usedUsd is not null && limitUsd is not null
+            ? Math.Max(0m, limitUsd.Value - usedUsd.Value)
+            : null;
+
+        return new CombinedQuotaDisplay(
+            usedPercent,
+            usedUsd,
+            limitUsd,
+            remainingUsd,
+            remainingPercent);
+    }
+
+    public static decimal? ResolveCombinedLimitUsd(QuotaUsage usage)
+    {
+        decimal? limitUsd = null;
+
+        if (usage.ModelsEstimatedLimitUsd is decimal modelsLimit)
+            limitUsd = modelsLimit;
+
+        if (usage.ApiIncludedAmountUsd is decimal apiLimit)
+            limitUsd = (limitUsd ?? 0m) + apiLimit;
+
+        return limitUsd;
+    }
+
+    public static decimal? ResolveCombinedUsedUsd(QuotaUsage usage)
+    {
+        if (usage.ModelsUsedUsd is decimal modelsUsed || usage.ApiUsedAmountUsd is decimal apiUsed)
+            return (usage.ModelsUsedUsd ?? 0m) + (usage.ApiUsedAmountUsd ?? 0m);
+
+        var limitUsd = ResolveCombinedLimitUsd(usage);
+        if (limitUsd is null or <= 0m)
+            return null;
+
+        var modelsLimit = usage.ModelsEstimatedLimitUsd ?? 0m;
+        var apiLimit = usage.ApiIncludedAmountUsd ?? 0m;
+        if (modelsLimit <= 0m && apiLimit <= 0m)
+            return null;
+
+        return PercentToUsd(usage.FirstPartyUsedPercent, modelsLimit)
+            + PercentToUsd(usage.ApiUsedPercent, apiLimit);
+    }
+
+    public static double? ResolveCombinedUsedPercent(QuotaUsage usage)
+    {
+        var usedUsd = ResolveCombinedUsedUsd(usage);
+        var limitUsd = ResolveCombinedLimitUsd(usage);
+        if (usedUsd is null || limitUsd is null or <= 0m)
+            return null;
+
+        return (double)(usedUsd.Value / limitUsd.Value * 100m);
+    }
+
+    public static double ResolveCombinedDayPercent(
+        double modelsDayPercent,
+        double apiDayPercent,
+        decimal? modelsLimitUsd,
+        decimal? apiLimitUsd)
+    {
+        var combinedLimit = ResolveCombinedLimitFromParts(modelsLimitUsd, apiLimitUsd);
+        if (combinedLimit is null or <= 0m)
+            return modelsDayPercent + apiDayPercent;
+
+        var modelsLimit = modelsLimitUsd ?? 0m;
+        var apiLimit = apiLimitUsd ?? 0m;
+        var usedUsd = PercentToUsd(modelsDayPercent, modelsLimit)
+            + PercentToUsd(apiDayPercent, apiLimit);
+
+        return (double)(usedUsd / combinedLimit.Value * 100m);
+    }
+
+    private static decimal? ResolveCombinedLimitFromParts(decimal? modelsLimitUsd, decimal? apiLimitUsd)
+    {
+        decimal? limitUsd = null;
+
+        if (modelsLimitUsd is decimal modelsLimit)
+            limitUsd = modelsLimit;
+
+        if (apiLimitUsd is decimal apiLimit)
+            limitUsd = (limitUsd ?? 0m) + apiLimit;
+
+        return limitUsd;
+    }
 }
+
+public readonly record struct CombinedQuotaDisplay(
+    double UsedPercent,
+    decimal? UsedUsd,
+    decimal? LimitUsd,
+    decimal? RemainingUsd,
+    double RemainingPercent);

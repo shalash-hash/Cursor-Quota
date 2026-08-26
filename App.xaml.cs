@@ -51,6 +51,7 @@ public partial class App : WpfApplication
         mainWindow.SetTrayService(_trayIconService);
 
         MainWindow = mainWindow;
+        mainWindow.PrepareInitialTrayHide();
         mainWindow.Show();
         mainWindow.HideToTray();
 

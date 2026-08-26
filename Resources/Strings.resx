@@ -114,6 +114,9 @@
   <data name="TodayPoolsDetailFormat" xml:space="preserve">
     <value>Today: models {0}, API {1}</value>
   </data>
+  <data name="TotalPoolsDetailFormat" xml:space="preserve">
+    <value>Models {0} · API {1}</value>
+  </data>
   <data name="ApiSpendFormat" xml:space="preserve">
     <value>{0} of {1}</value>
   </data>
@@ -149,6 +152,60 @@
   </data>
   <data name="DaysPatternOther" xml:space="preserve">
     <value>{0} days</value>
+  </data>
+  <data name="HoursPatternZero" xml:space="preserve">
+    <value>{0} hours</value>
+  </data>
+  <data name="HoursPatternOne" xml:space="preserve">
+    <value>{0} hour</value>
+  </data>
+  <data name="HoursPatternTwo" xml:space="preserve">
+    <value>{0} hours</value>
+  </data>
+  <data name="HoursPatternFew" xml:space="preserve">
+    <value>{0} hours</value>
+  </data>
+  <data name="HoursPatternMany" xml:space="preserve">
+    <value>{0} hours</value>
+  </data>
+  <data name="HoursPatternOther" xml:space="preserve">
+    <value>{0} hours</value>
+  </data>
+  <data name="MinutesPatternZero" xml:space="preserve">
+    <value>{0} minutes</value>
+  </data>
+  <data name="MinutesPatternOne" xml:space="preserve">
+    <value>{0} minute</value>
+  </data>
+  <data name="MinutesPatternTwo" xml:space="preserve">
+    <value>{0} minutes</value>
+  </data>
+  <data name="MinutesPatternFew" xml:space="preserve">
+    <value>{0} minutes</value>
+  </data>
+  <data name="MinutesPatternMany" xml:space="preserve">
+    <value>{0} minutes</value>
+  </data>
+  <data name="MinutesPatternOther" xml:space="preserve">
+    <value>{0} minutes</value>
+  </data>
+  <data name="SecondsPatternZero" xml:space="preserve">
+    <value>{0} seconds</value>
+  </data>
+  <data name="SecondsPatternOne" xml:space="preserve">
+    <value>{0} second</value>
+  </data>
+  <data name="SecondsPatternTwo" xml:space="preserve">
+    <value>{0} seconds</value>
+  </data>
+  <data name="SecondsPatternFew" xml:space="preserve">
+    <value>{0} seconds</value>
+  </data>
+  <data name="SecondsPatternMany" xml:space="preserve">
+    <value>{0} seconds</value>
+  </data>
+  <data name="SecondsPatternOther" xml:space="preserve">
+    <value>{0} seconds</value>
   </data>
   <data name="TrayLoading" xml:space="preserve">
     <value>Cursor Quota — loading...</value>
@@ -230,5 +287,8 @@
   </data>
   <data name="StatisticsCumulativeTooltipFormat" xml:space="preserve">
     <value>Cumulative: {0} ({1})</value>
+  </data>
+  <data name="StatisticsCumulativeLabel" xml:space="preserve">
+    <value>Cumulative</value>
   </data>
 </root>

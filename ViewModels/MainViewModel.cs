@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Quota.Helpers;
 using Quota.Localization;
 using Quota.Models;
@@ -22,6 +23,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     private readonly ThemeService _themeService;
     private readonly ILocalizationService _localizationService;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
+    private DispatcherTimer? _resetCountdownTimer;
 
     private readonly IReadOnlyList<int> _precisionOptions = new[] { 2 };
 
@@ -51,6 +53,8 @@ public class MainViewModel : ViewModelBase, IDisposable
     private string _todayOverageText = string.Empty;
     private bool _isDailyTargetExceeded;
     private double _dailyProgressFillPercent;
+    private double _dailyPrimaryFillPercent;
+    private double _dailySecondaryFillPercent;
     private double _dailyNormSegmentWeight = 1;
     private double _dailyAheadSegmentWeight;
     private string _dailyProgressNormLabel = string.Empty;
@@ -72,6 +76,7 @@ public class MainViewModel : ViewModelBase, IDisposable
 
     private string _paceStatusText = string.Empty;
     private string _todayPoolsDetailText = string.Empty;
+    private string _totalPoolsDetailText = string.Empty;
 
     private string? _errorMessage;
     private string? _errorMessageKey;
@@ -332,6 +337,18 @@ public class MainViewModel : ViewModelBase, IDisposable
         private set => SetProperty(ref _dailyProgressFillPercent, value);
     }
 
+    public double DailyPrimaryFillPercent
+    {
+        get => _dailyPrimaryFillPercent;
+        private set => SetProperty(ref _dailyPrimaryFillPercent, value);
+    }
+
+    public double DailySecondaryFillPercent
+    {
+        get => _dailySecondaryFillPercent;
+        private set => SetProperty(ref _dailySecondaryFillPercent, value);
+    }
+
     public double DailyNormSegmentWeight
     {
         get => _dailyNormSegmentWeight;
@@ -438,6 +455,12 @@ public class MainViewModel : ViewModelBase, IDisposable
     {
         get => _todayPoolsDetailText;
         private set => SetProperty(ref _todayPoolsDetailText, value);
+    }
+
+    public string TotalPoolsDetailText
+    {
+        get => _totalPoolsDetailText;
+        private set => SetProperty(ref _totalPoolsDetailText, value);
     }
 
     public string? ErrorMessage
@@ -567,6 +590,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         _localizationService.PropertyChanged -= OnLocalizationChanged;
+        StopResetCountdown();
         _refreshScheduler.Dispose();
         _refreshLock.Dispose();
     }
@@ -605,16 +629,23 @@ public class MainViewModel : ViewModelBase, IDisposable
         var calculation = _quotaCalculator.Calculate(usage);
         var digits = DisplayDigits;
         var culture = _localizationService.CurrentCulture;
+        var combined = QuotaMonetaryHelper.ResolveCombinedDisplay(usage);
 
-        TotalUsedPercentText = PercentageFormatter.Format(usage.TotalUsedPercent, digits, culture);
-        TotalProgressValue = Math.Max(0, usage.TotalUsedPercent);
-        TotalProgressLabel = BuildProgressLabel(usage.TotalUsedPercent, usage.ModelsUsedUsd, usage.ModelsEstimatedLimitUsd, culture, digits);
+        TotalUsedPercentText = PercentageFormatter.Format(combined.UsedPercent, digits, culture);
+        TotalProgressValue = Math.Max(0, combined.UsedPercent);
+        TotalPoolsDetailText = BuildTotalPoolsDetailText(usage, digits, culture);
+        TotalProgressLabel = BuildProgressLabel(
+            combined.UsedPercent,
+            combined.UsedUsd,
+            combined.LimitUsd,
+            culture,
+            digits);
 
-        if (usage.ModelsUsedUsd is not null)
+        if (combined.UsedUsd is not null)
         {
             TotalSpendText = QuotaMonetaryHelper.FormatSpendRange(
-                usage.ModelsUsedUsd.Value,
-                usage.ModelsEstimatedLimitUsd,
+                combined.UsedUsd.Value,
+                combined.LimitUsd,
                 culture);
         }
         else
@@ -625,23 +656,17 @@ public class MainViewModel : ViewModelBase, IDisposable
         TotalRemainingText = _localizationService.Format(
             "TotalRemainingFormat",
             FormatPercentWithUsd(
-                Math.Max(0, calculation.Total.RemainingPercent),
-                usage.ModelsEstimatedLimitUsd,
+                combined.RemainingPercent,
+                combined.LimitUsd,
                 culture));
-
-        TotalRemainingAmountText = usage.ModelsEstimatedRemainingUsd is not null
-            ? _localizationService.Format(
-                "TotalRemainingAmountFormat",
-                QuotaMonetaryHelper.FormatUsd(usage.ModelsEstimatedRemainingUsd.Value, culture))
-            : string.Empty;
-        DaysUntilResetText = _localizationService.Format(
-            "QuotaResetInFormat",
-            PercentageFormatter.FormatDays(calculation.RemainingDays, _localizationService));
+        TotalRemainingAmountText = string.Empty;
+        UpdateResetCountdownText();
+        StartResetCountdown();
         TotalDailyTargetText = _localizationService.Format(
             "PerDayFormat",
             FormatPercentWithUsd(
                 calculation.Total.DailyTarget,
-                usage.ModelsEstimatedLimitUsd,
+                combined.LimitUsd,
                 culture));
 
         ApplyDailySpentTexts(usage, culture);
@@ -656,6 +681,12 @@ public class MainViewModel : ViewModelBase, IDisposable
         DailyProgressFillPercent = dailyProgress.FillPercent;
         DailyNormSegmentWeight = dailyProgress.NormSegmentWeight;
         DailyAheadSegmentWeight = dailyProgress.AheadSegmentWeight;
+        DailyPrimaryFillPercent = dailyProgress.IsExceeded
+            ? dailyProgress.NormSegmentWeight * 100
+            : dailyProgress.FillPercent;
+        DailySecondaryFillPercent = dailyProgress.IsExceeded
+            ? dailyProgress.AheadSegmentWeight * 100
+            : 0;
 
         if (dailyProgress.IsExceeded)
         {
@@ -665,7 +696,7 @@ public class MainViewModel : ViewModelBase, IDisposable
                     "AheadOfScheduleFormat",
                     FormatPercentWithUsd(
                         calculation.Total.TodayOverage,
-                        usage.ModelsEstimatedLimitUsd,
+                        combined.LimitUsd,
                         culture))
                 : string.Empty;
         }
@@ -686,7 +717,7 @@ public class MainViewModel : ViewModelBase, IDisposable
                 "TodayRemainingFormat",
                 FormatPercentWithUsd(
                     calculation.Total.TodayRemaining,
-                    usage.ModelsEstimatedLimitUsd,
+                    combined.LimitUsd,
                     culture));
             TodayOverageText = string.Empty;
         }
@@ -761,6 +792,17 @@ public class MainViewModel : ViewModelBase, IDisposable
         return $"{percentPart} · {amountPart}";
     }
 
+    private string BuildTotalPoolsDetailText(QuotaUsage usage, int digits, CultureInfo culture)
+    {
+        var modelsPercent = PercentageFormatter.Format(usage.FirstPartyUsedPercent, digits, culture);
+        var apiPercent = PercentageFormatter.Format(usage.ApiUsedPercent, digits, culture);
+
+        return _localizationService.Format(
+            "TotalPoolsDetailFormat",
+            modelsPercent,
+            apiPercent);
+    }
+
     private string BuildTodayPoolsDetailText(QuotaUsage usage, int digits, CultureInfo culture)
     {
         var modelsPercent = PercentageFormatter.Format(usage.TodayFirstPartyUsedPercent, digits, culture);
@@ -816,13 +858,21 @@ public class MainViewModel : ViewModelBase, IDisposable
         DailyTodaySpentText = TotalTodaySpentText;
         DailyYesterdaySpentText = TotalYesterdaySpentText;
 
+        var modelsYesterdayPercent = ResolveModelsYesterdayPercent(usage);
+
         FirstPartyTodaySpentText = FormatDailySpentToday(
             usage.TodayFirstPartyUsedPercent,
-            SpendCentsToUsd(usage.TodayModelsSpendCents));
+            QuotaMonetaryHelper.ResolveDaySpendUsd(
+                usage.TodayModelsSpendCents,
+                usage.TodayFirstPartyUsedPercent,
+                usage.ModelsEstimatedLimitUsd));
         FirstPartyYesterdaySpentText = FormatDailySpentYesterday(
-            usage.YesterdayFirstPartyUsedPercent,
-            SpendCentsToUsd(usage.YesterdayModelsSpendCents),
-            usage.HasYesterdaySpendData);
+            modelsYesterdayPercent,
+            QuotaMonetaryHelper.ResolveDaySpendUsd(
+                usage.YesterdayModelsSpendCents,
+                modelsYesterdayPercent,
+                usage.ModelsEstimatedLimitUsd),
+            usage.HasYesterdayUsageData);
 
         ApiTodaySpentText = FormatDailySpentToday(
             usage.TodayApiUsedPercent,
@@ -846,13 +896,30 @@ public class MainViewModel : ViewModelBase, IDisposable
 
     private decimal? ComputeYesterdayTotalSpendUsd(QuotaUsage usage)
     {
-        var models = SpendCentsToUsd(usage.YesterdayModelsSpendCents);
-        var api = ApiPercentToUsd(usage.YesterdayApiUsedPercent, usage.ApiIncludedAmountUsd);
+        var models = QuotaMonetaryHelper.ResolveDaySpendUsd(
+            usage.YesterdayModelsSpendCents,
+            ResolveModelsYesterdayPercent(usage),
+            usage.ModelsEstimatedLimitUsd);
+
+        decimal? api = null;
+        if (usage.YesterdayApiUsedPercent > 0.001)
+            api = ApiPercentToUsd(usage.YesterdayApiUsedPercent, usage.ApiIncludedAmountUsd);
 
         if (models is null && api is null)
             return null;
 
         return (models ?? 0m) + (api ?? 0m);
+    }
+
+    private static double ResolveModelsYesterdayPercent(QuotaUsage usage)
+    {
+        if (usage.YesterdayFirstPartyUsedPercent > 0.001)
+            return usage.YesterdayFirstPartyUsedPercent;
+
+        if (usage.YesterdayTotalUsedPercent > 0.001 && usage.YesterdayApiUsedPercent < 0.001)
+            return usage.YesterdayTotalUsedPercent;
+
+        return usage.YesterdayFirstPartyUsedPercent;
     }
 
     private static decimal? SpendCentsToUsd(long? cents) =>
@@ -918,7 +985,8 @@ public class MainViewModel : ViewModelBase, IDisposable
             var result = await _usageHistoryService.BuildAsync(
                 SelectedHistoryRange,
                 DateTime.Now,
-                _localizationService.CurrentCulture).ConfigureAwait(false);
+                _localizationService.CurrentCulture,
+                _lastSuccessfulUsage?.PeriodStart).ConfigureAwait(false);
 
             RunOnUi(() =>
             {
@@ -985,6 +1053,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         TotalRemainingText = _localizationService.Format("TotalRemainingFormat", dash);
         TotalRemainingAmountText = string.Empty;
         DaysUntilResetText = _localizationService.Format("QuotaResetInFormat", dash);
+        StopResetCountdown();
         TotalDailyTargetText = _localizationService.Format("PerDayFormat", dashPercent);
         TotalTodaySpentText = _localizationService.Format("DailySpentTodayFormat", dash);
         TotalYesterdaySpentText = _localizationService.Format("DailySpentYesterdayFormat", dash);
@@ -995,6 +1064,8 @@ public class MainViewModel : ViewModelBase, IDisposable
         TodayOverageText = string.Empty;
         IsDailyTargetExceeded = false;
         DailyProgressFillPercent = 0;
+        DailyPrimaryFillPercent = 0;
+        DailySecondaryFillPercent = 0;
         DailyNormSegmentWeight = 1;
         DailyAheadSegmentWeight = 0;
         DailyProgressNormLabel = string.Empty;
@@ -1011,6 +1082,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         ApiYesterdaySpentText = _localizationService.Format("DailySpentYesterdayFormat", dash);
         PaceStatusText = string.Empty;
         TodayPoolsDetailText = string.Empty;
+        TotalPoolsDetailText = string.Empty;
         UpdateLastUpdateText();
         SetRefreshingState(IsRefreshing);
         RebuildErrorMessage();
@@ -1019,6 +1091,51 @@ public class MainViewModel : ViewModelBase, IDisposable
             ApplyUsage(_lastSuccessfulUsage);
         else
             NotifyTrayDisplayChanged();
+    }
+
+    private void StartResetCountdown()
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null)
+            return;
+
+        if (_resetCountdownTimer is null)
+        {
+            _resetCountdownTimer = new DispatcherTimer(DispatcherPriority.Background, dispatcher);
+            _resetCountdownTimer.Tick += (_, _) => UpdateResetCountdownText();
+        }
+
+        UpdateResetCountdownInterval();
+        if (!_resetCountdownTimer.IsEnabled)
+            _resetCountdownTimer.Start();
+    }
+
+    private void StopResetCountdown()
+    {
+        _resetCountdownTimer?.Stop();
+    }
+
+    private void UpdateResetCountdownText()
+    {
+        if (_lastSuccessfulUsage is null)
+            return;
+
+        var remaining = _lastSuccessfulUsage.PeriodEnd - DateTime.Now;
+        DaysUntilResetText = _localizationService.Format(
+            "QuotaResetInFormat",
+            RemainingTimeFormatter.Format(remaining, _localizationService));
+        UpdateResetCountdownInterval();
+    }
+
+    private void UpdateResetCountdownInterval()
+    {
+        if (_resetCountdownTimer is null || _lastSuccessfulUsage is null)
+            return;
+
+        var remaining = _lastSuccessfulUsage.PeriodEnd - DateTime.Now;
+        var interval = RemainingTimeFormatter.SuggestedRefreshInterval(remaining);
+        if (_resetCountdownTimer.Interval != interval)
+            _resetCountdownTimer.Interval = interval;
     }
 
     private void SetError(string key, params object[] args)

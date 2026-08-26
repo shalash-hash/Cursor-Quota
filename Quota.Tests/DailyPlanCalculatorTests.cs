@@ -198,6 +198,17 @@ public class DailyPlanCalculatorTests
         Assert.True(double.IsFinite(DailyPlanCalculator.CalculateCursorModelDailyPlan(remainingPercent, today, CycleStart, Reset30Days)));
         Assert.True(double.IsFinite(DailyPlanCalculator.CalculateApiDailyPlan(remainingPercent, today, CycleStart, Reset30Days)));
     }
+
+    [Fact]
+    public void RemainingPlanDays_UsesBillingTimestamp_NotCalendarMidnight()
+    {
+        var reset = new DateTime(2026, 9, 6, 12, 36, 42);
+        var justAfterMidnight = new DateTime(2026, 9, 6, 0, 30, 0);
+
+        var days = DailyPlanCalculator.CalculateRemainingPlanDays(justAfterMidnight, reset, 40);
+
+        Assert.Equal(1, days);
+    }
 }
 
 public class QuotaCalculatorTests

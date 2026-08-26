@@ -40,10 +40,12 @@ public static class TrayDisplayFormatter
             };
         }
 
+        var totalPercent = QuotaMonetaryHelper.ResolveCombinedUsedPercent(usage)
+            ?? usage.TotalUsedPercent;
         var culture = localization.CurrentCulture;
         var digits = decimalPlaces;
 
-        var totalPercent = PercentageFormatter.Format(usage.TotalUsedPercent, digits, culture);
+        var totalPercentText = PercentageFormatter.Format(totalPercent, digits, culture);
         var modelsPercent = PercentageFormatter.Format(usage.FirstPartyUsedPercent, digits, culture);
         var apiPercent = PercentageFormatter.Format(usage.ApiUsedPercent, digits, culture);
 
@@ -51,7 +53,7 @@ public static class TrayDisplayFormatter
             culture,
             localization.GetString("TrayTooltipFormat"),
             localization.GetString("TrayShortTotal"),
-            totalPercent,
+            totalPercentText,
             localization.GetString("TrayShortModels"),
             modelsPercent,
             localization.GetString("TrayShortApi"),
@@ -59,7 +61,7 @@ public static class TrayDisplayFormatter
 
         var menuLines = new List<string>
         {
-            localization.Format("TrayMenuTotalFormat", totalPercent),
+            localization.Format("TrayMenuTotalFormat", totalPercentText),
             localization.Format("TrayMenuModelsFormat", modelsPercent),
             localization.Format("TrayMenuApiFormat", apiPercent)
         };

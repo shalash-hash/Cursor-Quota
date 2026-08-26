@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using Quota.Services;
 using Quota.ViewModels;
 
@@ -12,6 +13,8 @@ public partial class MainWindow : Window
     private UiSettingsService? _uiSettingsService;
     private UiSettings? _uiSettings;
     private bool _isHidingToTray;
+    private bool _isStartupTrayHide;
+    private DispatcherTimer? _saveBoundsTimer;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -26,6 +29,12 @@ public partial class MainWindow : Window
 
         Width = _uiSettings.WindowWidth ?? UiSettingsService.DefaultWindowWidth;
         Height = _uiSettings.WindowHeight ?? UiSettingsService.DefaultWindowHeight;
+        SizeChanged += OnWindowSizeChanged;
+    }
+
+    public void PrepareInitialTrayHide()
+    {
+        _isStartupTrayHide = true;
     }
 
     public void SetTrayService(TrayIconService trayIconService)
@@ -41,7 +50,9 @@ public partial class MainWindow : Window
         _isHidingToTray = true;
         try
         {
-            SaveWindowSize();
+            if (!_isStartupTrayHide)
+                SaveWindowBounds();
+
             ShowInTaskbar = false;
             Hide();
 
@@ -51,6 +62,7 @@ public partial class MainWindow : Window
         finally
         {
             _isHidingToTray = false;
+            _isStartupTrayHide = false;
         }
     }
 
@@ -93,21 +105,68 @@ public partial class MainWindow : Window
             return;
         }
 
-        SaveWindowSize();
+        FlushPendingBoundsSave();
+        SaveWindowBounds();
         base.OnClosing(e);
     }
 
-    private void SaveWindowSize()
+    private void OnWindowSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_isStartupTrayHide || !IsLoaded || WindowState != WindowState.Normal)
+            return;
+
+        ScheduleBoundsSave();
+    }
+
+    private void ScheduleBoundsSave()
+    {
+        _saveBoundsTimer ??= new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(350)
+        };
+
+        _saveBoundsTimer.Stop();
+        _saveBoundsTimer.Tick -= OnSaveBoundsTimerTick;
+        _saveBoundsTimer.Tick += OnSaveBoundsTimerTick;
+        _saveBoundsTimer.Start();
+    }
+
+    private void OnSaveBoundsTimerTick(object? sender, EventArgs e)
+    {
+        _saveBoundsTimer?.Stop();
+        _saveBoundsTimer!.Tick -= OnSaveBoundsTimerTick;
+        SaveWindowBounds();
+    }
+
+    private void FlushPendingBoundsSave()
+    {
+        if (_saveBoundsTimer is null)
+            return;
+
+        _saveBoundsTimer.Stop();
+        _saveBoundsTimer.Tick -= OnSaveBoundsTimerTick;
+    }
+
+    private void SaveWindowBounds()
     {
         if (_uiSettingsService is null)
             return;
 
-        if (WindowState != WindowState.Normal)
+        var bounds = WindowState == WindowState.Normal
+            ? new Rect(Left, Top, Width, Height)
+            : RestoreBounds;
+
+        var width = UiSettingsService.SanitizeWindowSize(bounds.Width, UiSettingsService.MinWindowWidth);
+        var height = UiSettingsService.SanitizeWindowSize(bounds.Height, UiSettingsService.MinWindowHeight);
+        if (width is null || height is null)
             return;
 
         var settings = _uiSettingsService.Load();
-        settings.WindowWidth = ActualWidth;
-        settings.WindowHeight = ActualHeight;
+        if (settings.WindowWidth == width && settings.WindowHeight == height)
+            return;
+
+        settings.WindowWidth = width;
+        settings.WindowHeight = height;
         _uiSettingsService.Save(settings);
         _uiSettings = settings;
     }

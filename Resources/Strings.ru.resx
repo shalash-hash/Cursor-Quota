@@ -114,6 +114,9 @@
   <data name="TodayPoolsDetailFormat" xml:space="preserve">
     <value>Сегодня: модели {0}, API {1}</value>
   </data>
+  <data name="TotalPoolsDetailFormat" xml:space="preserve">
+    <value>Модели {0} · API {1}</value>
+  </data>
   <data name="ApiSpendFormat" xml:space="preserve">
     <value>{0} из {1}</value>
   </data>
@@ -149,6 +152,60 @@
   </data>
   <data name="DaysPatternOther" xml:space="preserve">
     <value>{0} дня</value>
+  </data>
+  <data name="HoursPatternZero" xml:space="preserve">
+    <value>{0} часов</value>
+  </data>
+  <data name="HoursPatternOne" xml:space="preserve">
+    <value>{0} час</value>
+  </data>
+  <data name="HoursPatternTwo" xml:space="preserve">
+    <value>{0} часа</value>
+  </data>
+  <data name="HoursPatternFew" xml:space="preserve">
+    <value>{0} часа</value>
+  </data>
+  <data name="HoursPatternMany" xml:space="preserve">
+    <value>{0} часов</value>
+  </data>
+  <data name="HoursPatternOther" xml:space="preserve">
+    <value>{0} часа</value>
+  </data>
+  <data name="MinutesPatternZero" xml:space="preserve">
+    <value>{0} минут</value>
+  </data>
+  <data name="MinutesPatternOne" xml:space="preserve">
+    <value>{0} минута</value>
+  </data>
+  <data name="MinutesPatternTwo" xml:space="preserve">
+    <value>{0} минуты</value>
+  </data>
+  <data name="MinutesPatternFew" xml:space="preserve">
+    <value>{0} минуты</value>
+  </data>
+  <data name="MinutesPatternMany" xml:space="preserve">
+    <value>{0} минут</value>
+  </data>
+  <data name="MinutesPatternOther" xml:space="preserve">
+    <value>{0} минуты</value>
+  </data>
+  <data name="SecondsPatternZero" xml:space="preserve">
+    <value>{0} секунд</value>
+  </data>
+  <data name="SecondsPatternOne" xml:space="preserve">
+    <value>{0} секунда</value>
+  </data>
+  <data name="SecondsPatternTwo" xml:space="preserve">
+    <value>{0} секунды</value>
+  </data>
+  <data name="SecondsPatternFew" xml:space="preserve">
+    <value>{0} секунды</value>
+  </data>
+  <data name="SecondsPatternMany" xml:space="preserve">
+    <value>{0} секунд</value>
+  </data>
+  <data name="SecondsPatternOther" xml:space="preserve">
+    <value>{0} секунды</value>
   </data>
   <data name="TrayLoading" xml:space="preserve">
     <value>Расход квоты Курсора — загрузка...</value>
@@ -230,5 +287,8 @@
   </data>
   <data name="StatisticsCumulativeTooltipFormat" xml:space="preserve">
     <value>Накоплено: {0} ({1})</value>
+  </data>
+  <data name="StatisticsCumulativeLabel" xml:space="preserve">
+    <value>Накоплено</value>
   </data>
 </root>

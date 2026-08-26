@@ -17,6 +17,8 @@
         <SolidColorBrush x:Key="DailyProgressBrush" Color="#22C55E"/>
         <SolidColorBrush x:Key="AheadOfScheduleBrush" Color="#F59E0B"/>
         <SolidColorBrush x:Key="ProgressTrackBrush" Color="#E5E7EB"/>
+        <SolidColorBrush x:Key="ProgressTickBrush" Color="#33000000"/>
+        <SolidColorBrush x:Key="ProgressTubeBorderBrush" Color="#CBD5E1"/>
         <SolidColorBrush x:Key="FirstPartyBrush" Color="#6366F1"/>
         <SolidColorBrush x:Key="ApiBrush" Color="#0EA5E9"/>
         <SolidColorBrush x:Key="ErrorBackgroundBrush" Color="#FEF2F2"/>
@@ -33,6 +35,12 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="12"/>
+        </Style>
+
+        <Style x:Key="CardCenteredText" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
 
         <Style x:Key="AppComboBoxItem" TargetType="ComboBoxItem">

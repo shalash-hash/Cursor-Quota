@@ -31,14 +31,17 @@ public static class PercentageFormatter
     }
 
     public static string FormatDays(int days, ILocalizationService localization)
+        => FormatUnit(days, "DaysPattern", localization);
+
+    public static string FormatUnit(int count, string keyPrefix, ILocalizationService localization)
     {
         var culture = localization.CurrentCulture;
-        var form = SelectPluralForm(days, culture);
-        var key = "DaysPattern" + form;
+        var form = SelectPluralForm(count, culture);
+        var key = keyPrefix + form;
         var template = localization.GetString(key);
         if (template == key)
-            template = localization.GetString("DaysPatternOther");
-        return string.Format(culture, template, days);
+            template = localization.GetString(keyPrefix + "Other");
+        return string.Format(culture, template, count);
     }
 
     private static string SelectPluralForm(int value, CultureInfo culture)

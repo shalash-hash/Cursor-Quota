@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using Microsoft.Data.Sqlite;
+using Quota.Helpers;
 using Quota.Models;
 
 namespace Quota.Services;
@@ -83,8 +84,12 @@ public class QuotaSnapshotRepository
 
     public async Task<QuotaUsage> EnrichWithTodayUsageAsync(QuotaUsage current)
     {
+        var now = current.RetrievedAt == default ? DateTime.Now : current.RetrievedAt;
+        var todayStart = BillingCycleCalendar.GetDayStart(now, current.PeriodStart);
+        var yesterdayStart = BillingCycleCalendar.GetPreviousDayStart(now, current.PeriodStart);
+
         var priorSnapshots = await GetSnapshotsForDayAsync(
-            DateTime.Today,
+            todayStart,
             current.PeriodStart,
             current.PeriodEnd);
 
@@ -108,7 +113,7 @@ public class QuotaSnapshotRepository
         if (today.Total < 0.001)
         {
             var yesterdayLast = await GetLastSnapshotBeforeDayAsync(
-                DateTime.Today,
+                todayStart,
                 current.PeriodStart,
                 current.PeriodEnd);
             if (yesterdayLast is not null)
@@ -125,37 +130,35 @@ public class QuotaSnapshotRepository
             priorSnapshots,
             currentSnapshot);
 
-        var yesterdaySpend = await GetYesterdaySpendCentsAsync(current);
+        var yesterdaySpend = await GetYesterdaySpendCentsAsync(current, yesterdayStart);
 
         return CopyUsage(
             current,
-            today.Total,
+            QuotaMonetaryHelper.ResolveCombinedDayPercent(
+                today.FirstParty,
+                today.Api,
+                current.ModelsEstimatedLimitUsd,
+                current.ApiIncludedAmountUsd),
             today.FirstParty,
             today.Api,
             todaySpendCents,
-            await GetYesterdayUsageAsync(current),
+            await GetYesterdayUsageAsync(current, yesterdayStart),
             yesterdaySpend);
     }
 
-    private async Task<long?> GetYesterdaySpendCentsAsync(QuotaUsage current)
+    private async Task<long?> GetYesterdaySpendCentsAsync(QuotaUsage current, DateTime yesterdayStart)
     {
-        var yesterday = DateTime.Today.AddDays(-1);
-        var first = await GetFirstSnapshotOfDayAsync(
-            yesterday,
+        var snapshots = await GetSnapshotsForDayAsync(
+            yesterdayStart,
             current.PeriodStart,
             current.PeriodEnd);
-        if (first is null)
+
+        if (snapshots.Count < 2)
             return null;
 
-        var last = await GetLastSnapshotOfDayAsync(
-            yesterday,
-            current.PeriodStart,
-            current.PeriodEnd) ?? first;
-
-        if (first.TotalSpendCents is not long baseline || last.TotalSpendCents is not long ending)
-            return null;
-
-        return Math.Max(0, ending - baseline);
+        var prior = snapshots.Take(snapshots.Count - 1).ToList();
+        var delta = QuotaSnapshotAnalytics.ComputeSummedSpendCentsDelta(prior, snapshots[^1]);
+        return delta > 0 ? delta : null;
     }
 
     public async Task<PoolDaySpent?> GetDaySpentForDateAsync(
@@ -230,10 +233,10 @@ public class QuotaSnapshotRepository
         return snapshots;
     }
 
-    private async Task<PoolDaySpent?> GetYesterdayUsageAsync(QuotaUsage current)
+    private async Task<PoolDaySpent?> GetYesterdayUsageAsync(QuotaUsage current, DateTime yesterdayStart)
     {
         return await GetDaySpentForDateAsync(
-            DateTime.Today.AddDays(-1),
+            yesterdayStart,
             current.PeriodStart,
             current.PeriodEnd);
     }
@@ -247,6 +250,14 @@ public class QuotaSnapshotRepository
         PoolDaySpent? yesterday,
         long? yesterdayModelsSpendCents)
     {
+        var yesterdayTotal = yesterday is PoolDaySpent spent
+            ? QuotaMonetaryHelper.ResolveCombinedDayPercent(
+                spent.FirstParty,
+                spent.Api,
+                source.ModelsEstimatedLimitUsd,
+                source.ApiIncludedAmountUsd)
+            : 0;
+
         return new QuotaUsage
         {
             TotalUsedPercent = source.TotalUsedPercent,
@@ -255,7 +266,7 @@ public class QuotaSnapshotRepository
             TodayTotalUsedPercent = todayTotal,
             TodayFirstPartyUsedPercent = todayFirstParty,
             TodayApiUsedPercent = todayApi,
-            YesterdayTotalUsedPercent = yesterday?.Total ?? 0,
+            YesterdayTotalUsedPercent = yesterdayTotal,
             YesterdayFirstPartyUsedPercent = yesterday?.FirstParty ?? 0,
             YesterdayApiUsedPercent = yesterday?.Api ?? 0,
             HasYesterdayUsageData = yesterday is not null,
@@ -315,7 +326,7 @@ public class QuotaSnapshotRepository
         DateTime periodStart,
         DateTime periodEnd)
     {
-        var dayStart = day.Date;
+        var dayStart = day;
         var dayEnd = dayStart.AddDays(1);
         var all = await GetSnapshotsAsync(dayStart, dayEnd);
 
@@ -336,7 +347,7 @@ public class QuotaSnapshotRepository
     {
         await EnsureInitializedAsync();
 
-        var dayStart = day.Date;
+        var dayStart = day;
 
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
         await connection.OpenAsync();
@@ -390,7 +401,7 @@ public class QuotaSnapshotRepository
     {
         await EnsureInitializedAsync();
 
-        var dayStart = day.Date;
+        var dayStart = day;
         var dayEnd = dayStart.AddDays(1);
 
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
@@ -433,7 +444,7 @@ public class QuotaSnapshotRepository
     {
         await EnsureInitializedAsync();
 
-        var dayStart = day.Date;
+        var dayStart = day;
         var dayEnd = dayStart.AddDays(1);
 
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");

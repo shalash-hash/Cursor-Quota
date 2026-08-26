@@ -49,6 +49,8 @@ public sealed class ThemeService
         SetBrushColor(resources, "ErrorBrush", palette.Error);
         SetBrushColor(resources, "BorderBrush", palette.Border);
         SetBrushColor(resources, "ProgressTrackBrush", palette.ProgressTrack);
+        SetBrushColor(resources, "ProgressTickBrush", palette.ProgressTick);
+        SetBrushColor(resources, "ProgressTubeBorderBrush", palette.ProgressTubeBorder);
         SetBrushColor(resources, "FirstPartyBrush", palette.FirstParty);
         SetBrushColor(resources, "ApiBrush", palette.Api);
         SetBrushColor(resources, "SpentTodayBrush", palette.SpentToday);
@@ -77,6 +79,8 @@ public sealed class ThemeService
         Error: ColorFromHex("#DC2626"),
         Border: ColorFromHex("#E5E7EB"),
         ProgressTrack: ColorFromHex("#E5E7EB"),
+        ProgressTick: ColorFromHex("#33000000"),
+        ProgressTubeBorder: ColorFromHex("#CBD5E1"),
         FirstParty: ColorFromHex("#6366F1"),
         Api: ColorFromHex("#0EA5E9"),
         SpentToday: ColorFromHex("#059669"),
@@ -99,6 +103,8 @@ public sealed class ThemeService
         Error: ColorFromHex("#F87171"),
         Border: ColorFromHex("#374151"),
         ProgressTrack: ColorFromHex("#374151"),
+        ProgressTick: ColorFromHex("#55FFFFFF"),
+        ProgressTubeBorder: ColorFromHex("#4B5563"),
         FirstParty: ColorFromHex("#818CF8"),
         Api: ColorFromHex("#38BDF8"),
         SpentToday: ColorFromHex("#34D399"),
@@ -131,6 +137,8 @@ public sealed class ThemeService
         WpfColor Error,
         WpfColor Border,
         WpfColor ProgressTrack,
+        WpfColor ProgressTick,
+        WpfColor ProgressTubeBorder,
         WpfColor FirstParty,
         WpfColor Api,
         WpfColor SpentToday,

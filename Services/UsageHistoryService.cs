@@ -16,9 +16,10 @@ public sealed class UsageHistoryService
     public async Task<UsageHistoryResult> BuildAsync(
         UsageHistoryRange range,
         DateTime referenceTime,
-        CultureInfo culture)
+        CultureInfo culture,
+        DateTime? billingCycleStart = null)
     {
-        var rangeStart = GetRangeStart(range, referenceTime);
+        var rangeStart = GetRangeStart(range, referenceTime, billingCycleStart);
         var snapshots = await _snapshotRepository.GetSnapshotsAsync(rangeStart, null);
 
         if (snapshots.Count == 0)
@@ -29,11 +30,13 @@ public sealed class UsageHistoryService
             };
         }
 
+        var snapshotsForAggregation = await IncludeRangeBaselineAsync(rangeStart, snapshots);
+
         var useHourlyBuckets = range == UsageHistoryRange.Today;
         var points = new List<UsageHistoryPoint>();
 
         var bucketGroups = snapshots
-            .GroupBy(snapshot => GetBucketStart(snapshot.RetrievedAt, useHourlyBuckets))
+            .GroupBy(snapshot => GetBucketStart(snapshot.RetrievedAt, useHourlyBuckets, billingCycleStart))
             .OrderBy(group => group.Key);
 
         foreach (var bucketGroup in bucketGroups)
@@ -42,10 +45,10 @@ public sealed class UsageHistoryService
                 .OrderBy(snapshot => snapshot.RetrievedAt)
                 .ToList();
 
-            var dailySpent = AggregateBucketSpent(bucketSnapshots);
-            var cumulative = bucketSnapshots[^1].TotalPercent;
+            var dailySpent = AggregateBucketSpent(snapshotsForAggregation, bucketSnapshots);
+            var cumulative = ResolveCumulativePercent(bucketSnapshots[^1]);
             var lastSnapshot = bucketSnapshots[^1];
-            var modelsSpendCents = AggregateBucketSpendCents(bucketSnapshots);
+            var modelsSpendCents = AggregateBucketSpendCents(snapshotsForAggregation, bucketSnapshots);
             var modelsLimitUsd = ResolveModelsLimitUsd(lastSnapshot);
             var apiLimitUsd = 20m;
 
@@ -95,9 +98,14 @@ public sealed class UsageHistoryService
         };
     }
 
-    internal static DateTime GetRangeStart(UsageHistoryRange range, DateTime referenceTime)
+    internal static DateTime GetRangeStart(
+        UsageHistoryRange range,
+        DateTime referenceTime,
+        DateTime? billingCycleStart = null)
     {
-        var today = referenceTime.Date;
+        var today = billingCycleStart is DateTime cycleStart
+            ? BillingCycleCalendar.GetDayStart(referenceTime, cycleStart)
+            : referenceTime.Date;
 
         return range switch
         {
@@ -110,55 +118,127 @@ public sealed class UsageHistoryService
         };
     }
 
-    private static DateTime GetBucketStart(DateTime timestamp, bool hourly)
+    private static DateTime GetBucketStart(DateTime timestamp, bool hourly, DateTime? billingCycleStart)
     {
-        if (!hourly)
-            return timestamp.Date;
-
-        return new DateTime(
-            timestamp.Year,
-            timestamp.Month,
-            timestamp.Day,
-            timestamp.Hour,
-            0,
-            0,
-            timestamp.Kind);
-    }
-
-    private static PoolDaySpent AggregateBucketSpent(IReadOnlyList<QuotaSnapshot> bucketSnapshots)
-    {
-        var total = 0d;
-        var models = 0d;
-        var api = 0d;
-
-        foreach (var periodGroup in bucketSnapshots.GroupBy(snapshot => (snapshot.PeriodStart, snapshot.PeriodEnd)))
+        if (hourly)
         {
-            var ordered = periodGroup.OrderBy(snapshot => snapshot.RetrievedAt).ToList();
-            var delta = QuotaSnapshotAnalytics.ComputeDayDelta(ordered[0], ordered[^1]);
-            total += delta.Total;
-            models += delta.FirstParty;
-            api += delta.Api;
+            return new DateTime(
+                timestamp.Year,
+                timestamp.Month,
+                timestamp.Day,
+                timestamp.Hour,
+                0,
+                0,
+                timestamp.Kind);
         }
 
-        return new PoolDaySpent(total, models, api);
+        if (billingCycleStart is DateTime cycleStart)
+            return BillingCycleCalendar.GetDayStart(timestamp, cycleStart);
+
+        return timestamp.Date;
     }
 
-    private static long AggregateBucketSpendCents(IReadOnlyList<QuotaSnapshot> bucketSnapshots)
+    private async Task<IReadOnlyList<QuotaSnapshot>> IncludeRangeBaselineAsync(
+        DateTime rangeStart,
+        IReadOnlyList<QuotaSnapshot> snapshots)
     {
-        long total = 0;
+        if (rangeStart <= DateTime.MinValue)
+            return snapshots;
 
-        foreach (var periodGroup in bucketSnapshots.GroupBy(snapshot => (snapshot.PeriodStart, snapshot.PeriodEnd)))
+        var priorSnapshots = await _snapshotRepository.GetSnapshotsAsync(null, rangeStart);
+        if (priorSnapshots.Count == 0)
+            return snapshots;
+
+        return [priorSnapshots[^1], .. snapshots];
+    }
+
+    private static PoolDaySpent AggregateBucketSpent(
+        IReadOnlyList<QuotaSnapshot> snapshotsForAggregation,
+        IReadOnlyList<QuotaSnapshot> bucketSnapshots)
+    {
+        var orderedBucket = bucketSnapshots
+            .OrderBy(snapshot => snapshot.RetrievedAt)
+            .ToList();
+
+        if (orderedBucket.Count == 0)
+            return new PoolDaySpent(0, 0, 0);
+
+        var prior = BuildBucketPriorSnapshots(snapshotsForAggregation, orderedBucket);
+        return QuotaSnapshotAnalytics.ComputeSummedDayUsage(prior, orderedBucket[^1]);
+    }
+
+    private static long AggregateBucketSpendCents(
+        IReadOnlyList<QuotaSnapshot> snapshotsForAggregation,
+        IReadOnlyList<QuotaSnapshot> bucketSnapshots)
+    {
+        var orderedBucket = bucketSnapshots
+            .OrderBy(snapshot => snapshot.RetrievedAt)
+            .ToList();
+
+        if (orderedBucket.Count == 0)
+            return 0;
+
+        var prior = BuildBucketPriorSnapshots(snapshotsForAggregation, orderedBucket);
+        return QuotaSnapshotAnalytics.ComputeSummedSpendCentsDelta(prior, orderedBucket[^1]);
+    }
+
+    private static List<QuotaSnapshot> BuildBucketPriorSnapshots(
+        IReadOnlyList<QuotaSnapshot> snapshotsForAggregation,
+        IReadOnlyList<QuotaSnapshot> orderedBucket)
+    {
+        var prior = new List<QuotaSnapshot>();
+        var baseline = FindBaselineSnapshot(snapshotsForAggregation, orderedBucket[0].RetrievedAt);
+        if (baseline is not null)
+            prior.Add(baseline);
+
+        if (orderedBucket.Count > 1)
+            prior.AddRange(orderedBucket.Take(orderedBucket.Count - 1));
+
+        return prior;
+    }
+
+    private static QuotaSnapshot? FindBaselineSnapshot(
+        IReadOnlyList<QuotaSnapshot> snapshotsForAggregation,
+        DateTime bucketFirstRetrievedAt)
+    {
+        QuotaSnapshot? baseline = null;
+
+        foreach (var snapshot in snapshotsForAggregation)
         {
-            var ordered = periodGroup.OrderBy(snapshot => snapshot.RetrievedAt).ToList();
-            if (ordered.Count < 2)
-                continue;
+            if (snapshot.RetrievedAt >= bucketFirstRetrievedAt)
+                break;
 
-            total += QuotaSnapshotAnalytics.ComputeSummedSpendCentsDelta(
-                ordered.Take(ordered.Count - 1).ToList(),
-                ordered[^1]);
+            baseline = snapshot;
         }
 
-        return total;
+        return baseline;
+    }
+
+    private static double ResolveCumulativePercent(QuotaSnapshot snapshot)
+    {
+        decimal? modelsLimit = null;
+        if (snapshot.TotalSpendCents is long spendCents)
+            modelsLimit = QuotaMonetaryHelper.EstimateLimitUsd(spendCents, snapshot.FirstPartyPercent);
+
+        decimal? apiLimit = snapshot.LimitCents is long limitCents
+            ? QuotaMonetaryHelper.CentsToUsd(limitCents)
+            : null;
+
+        var usage = new QuotaUsage
+        {
+            FirstPartyUsedPercent = snapshot.FirstPartyPercent,
+            ApiUsedPercent = snapshot.ApiPercent,
+            ModelsUsedUsd = snapshot.TotalSpendCents is long totalSpend
+                ? QuotaMonetaryHelper.CentsToUsd(totalSpend)
+                : null,
+            ApiUsedAmountUsd = apiLimit is decimal included
+                ? QuotaMonetaryHelper.PercentToUsd(snapshot.ApiPercent, included)
+                : null,
+            ModelsEstimatedLimitUsd = modelsLimit,
+            ApiIncludedAmountUsd = apiLimit
+        };
+
+        return QuotaMonetaryHelper.ResolveCombinedUsedPercent(usage) ?? snapshot.TotalPercent;
     }
 
     private static decimal? ResolveModelsLimitUsd(QuotaSnapshot snapshot)

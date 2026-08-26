@@ -200,6 +200,49 @@ public class QuotaSnapshotAnalyticsTests
         }
     }
 
+    [Fact]
+    public async Task EnrichWithTodayUsage_KeepsSameBillingDay_AfterCalendarMidnight()
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(), $"quota-test-{Guid.NewGuid():N}.db");
+        var repository = new QuotaSnapshotRepository(databasePath);
+
+        try
+        {
+            var periodStart = new DateTime(2026, 8, 6, 12, 36, 42);
+            var periodEnd = new DateTime(2026, 9, 6, 12, 36, 42);
+
+            await repository.SaveSnapshotAsync(CreateUsage(
+                periodStart,
+                periodEnd,
+                new DateTime(2026, 8, 26, 23, 10, 0),
+                total: 40,
+                firstParty: 40,
+                api: 0,
+                totalSpend: 18000,
+                includedSpend: 2000,
+                limit: 2000));
+
+            var enriched = await repository.EnrichWithTodayUsageAsync(CreateUsage(
+                periodStart,
+                periodEnd,
+                new DateTime(2026, 8, 27, 0, 30, 0),
+                total: 41.2,
+                firstParty: 41.2,
+                api: 0,
+                totalSpend: 18540,
+                includedSpend: 2000,
+                limit: 2000));
+
+            Assert.True(enriched.TodayTotalUsedPercent > 0.5, $"Today={enriched.TodayTotalUsedPercent}");
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(databasePath))
+                File.Delete(databasePath);
+        }
+    }
+
     private static QuotaUsage CreateUsage(
         DateTime periodStart,
         DateTime periodEnd,

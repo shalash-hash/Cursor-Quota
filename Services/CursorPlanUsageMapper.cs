@@ -19,7 +19,6 @@ internal static class CursorPlanUsageMapper
 
         var autoPercent = planUsage.AutoPercentUsed ?? 0;
         var apiPercent = planUsage.ApiPercentUsed ?? 0;
-        var totalPercent = ResolveTotalPercent(planUsage);
 
         decimal? apiIncludedUsd = limitCents is > 0
             ? limitCents.Value / 100m
@@ -45,9 +44,8 @@ internal static class CursorPlanUsageMapper
             modelsEstimatedRemainingUsd = QuotaMonetaryHelper.EstimateRemainingUsd(spendCents, autoPercent);
         }
 
-        return new QuotaUsage
+        var usage = new QuotaUsage
         {
-            TotalUsedPercent = totalPercent,
             FirstPartyUsedPercent = autoPercent,
             ApiUsedPercent = apiPercent,
             PeriodStart = periodStart,
@@ -62,7 +60,30 @@ internal static class CursorPlanUsageMapper
             LimitCents = limitCents,
             ModelsUsedUsd = modelsUsedUsd,
             ModelsEstimatedLimitUsd = modelsEstimatedLimitUsd,
-            ModelsEstimatedRemainingUsd = modelsEstimatedRemainingUsd
+            ModelsEstimatedRemainingUsd = modelsEstimatedRemainingUsd,
+            TotalUsedPercent = 0
+        };
+
+        return new QuotaUsage
+        {
+            TotalUsedPercent = QuotaMonetaryHelper.ResolveCombinedUsedPercent(usage)
+                ?? planUsage.TotalPercentUsed
+                ?? autoPercent,
+            FirstPartyUsedPercent = usage.FirstPartyUsedPercent,
+            ApiUsedPercent = usage.ApiUsedPercent,
+            PeriodStart = usage.PeriodStart,
+            PeriodEnd = usage.PeriodEnd,
+            RetrievedAt = usage.RetrievedAt,
+            PlanName = usage.PlanName,
+            ApiIncludedAmountUsd = usage.ApiIncludedAmountUsd,
+            ApiUsedAmountUsd = usage.ApiUsedAmountUsd,
+            ApiRemainingAmountUsd = usage.ApiRemainingAmountUsd,
+            TotalSpendCents = usage.TotalSpendCents,
+            IncludedSpendCents = usage.IncludedSpendCents,
+            LimitCents = usage.LimitCents,
+            ModelsUsedUsd = usage.ModelsUsedUsd,
+            ModelsEstimatedLimitUsd = usage.ModelsEstimatedLimitUsd,
+            ModelsEstimatedRemainingUsd = usage.ModelsEstimatedRemainingUsd
         };
     }
 
@@ -86,18 +107,5 @@ internal static class CursorPlanUsageMapper
             return planIncludedAmountCents;
 
         return null;
-    }
-
-    private static double ResolveTotalPercent(PlanUsage planUsage)
-    {
-        var autoPercent = planUsage.AutoPercentUsed ?? 0;
-        var apiPercent = planUsage.ApiPercentUsed ?? 0;
-
-        // Cursor now tracks Cursor Models and Other Models as separate pools.
-        // includedSpend/limit hits 100% once bonus usage starts, so it must not drive Total.
-        if (autoPercent > 0 || apiPercent > 0)
-            return Math.Max(autoPercent, apiPercent);
-
-        return planUsage.TotalPercentUsed ?? 0;
     }
 }
