@@ -52,6 +52,7 @@ public sealed class UiSettingsService
             PreferredLanguage = string.IsNullOrWhiteSpace(settings.PreferredLanguage)
                 ? existing.PreferredLanguage
                 : settings.PreferredLanguage,
+            LanguageChosenByUser = settings.LanguageChosenByUser || existing.LanguageChosenByUser,
             WindowWidth = ResolveWindowSize(
                 settings.WindowWidth ?? existing.WindowWidth,
                 MinWindowWidth,

@@ -1,3 +1,4 @@
+using Quota.Helpers;
 using Quota.Models;
 using Quota.Services;
 using Xunit;
@@ -216,7 +217,7 @@ public class QuotaCalculatorTests
     private readonly QuotaCalculator _calculator = new();
 
     [Fact]
-    public void Calculate_EarlyPeriod_UsesOnlyCursorModelForTotalDailyPlan()
+    public void Calculate_EarlyPeriod_TotalDailyTarget_IsLinearCombinedPlan()
     {
         var usage = new QuotaUsage
         {
@@ -231,11 +232,11 @@ public class QuotaCalculatorTests
 
         Assert.True(result.FirstParty.DailyTarget > 0);
         Assert.Equal(0, result.Api.DailyTarget);
-        Assert.Equal(result.FirstParty.DailyTarget, result.Total.DailyTarget);
+        Assert.Equal(100.0 / result.RemainingDays, result.Total.DailyTarget, precision: 4);
     }
 
     [Fact]
-    public void Calculate_EarlyPeriod_IgnoresApiQuotaInCombinedPlan()
+    public void Calculate_EarlyPeriod_TotalDailyTarget_IncludesApiInRemaining()
     {
         var usage = new QuotaUsage
         {
@@ -250,12 +251,12 @@ public class QuotaCalculatorTests
 
         Assert.True(result.FirstParty.DailyTarget > 0);
         Assert.Equal(0, result.Api.DailyTarget);
-        Assert.Equal(result.FirstParty.DailyTarget, result.Total.DailyTarget);
+        Assert.Equal(95.0 / result.RemainingDays, result.Total.DailyTarget, precision: 4);
         Assert.Equal(95, result.Api.RemainingPercent);
     }
 
     [Fact]
-    public void Calculate_ApiReservePeriod_CombinesApiPlanOnly()
+    public void Calculate_ApiReservePeriod_TotalDailyTarget_IsLinearCombinedPlan()
     {
         var usage = new QuotaUsage
         {
@@ -271,7 +272,7 @@ public class QuotaCalculatorTests
 
         Assert.Equal(0, result.FirstParty.DailyTarget);
         Assert.True(result.Api.DailyTarget > 0);
-        Assert.Equal(result.Api.DailyTarget, result.Total.DailyTarget);
+        Assert.Equal(50.0 / result.RemainingDays, result.Total.DailyTarget, precision: 4);
     }
 
     [Fact]
@@ -290,7 +291,91 @@ public class QuotaCalculatorTests
 
         Assert.Equal(23, result.RemainingDays);
         Assert.True(result.FirstParty.DailyTarget > 0);
-        Assert.Equal(result.FirstParty.DailyTarget, result.Total.DailyTarget);
+        Assert.Equal(80.0 / result.RemainingDays, result.Total.DailyTarget, precision: 4);
+    }
+
+    [Fact]
+    public void Calculate_TotalDailyTarget_MatchesRemainingDividedByDays()
+    {
+        var periodStart = new DateTime(2025, 8, 26, 12, 36, 0);
+        var periodEnd = new DateTime(2025, 9, 7, 12, 36, 0);
+        var usage = new QuotaUsage
+        {
+            TotalUsedPercent = 77.45,
+            FirstPartyUsedPercent = 75,
+            ApiUsedPercent = 10,
+            ModelsUsedUsd = 337.5m,
+            ModelsEstimatedLimitUsd = 450m,
+            ApiIncludedAmountUsd = 20m,
+            ApiUsedAmountUsd = 2m,
+            PeriodStart = periodStart,
+            PeriodEnd = periodEnd
+        };
+
+        var result = _calculator.Calculate(usage, new DateTime(2025, 9, 1, 10, 0, 0));
+        var combined = QuotaMonetaryHelper.ResolveCombinedDisplay(usage);
+        var expectedDailyPercent = QuotaMonetaryHelper.ResolveCombinedLinearDailyTarget(
+            combined.RemainingPercent,
+            result.RemainingDays);
+
+        Assert.Equal(expectedDailyPercent, result.Total.DailyTarget, precision: 4);
+
+        var dailyUsd = QuotaMonetaryHelper.PercentToUsd(
+            result.Total.DailyTarget,
+            combined.LimitUsd!.Value);
+        var remainingUsd = combined.RemainingUsd!.Value;
+        Assert.Equal(remainingUsd / result.RemainingDays, dailyUsd, precision: 1);
+    }
+
+    [Fact]
+    public void Calculate_TotalDailyTarget_UsesCombinedDollarLimit()
+    {
+        var usage = new QuotaUsage
+        {
+            TotalUsedPercent = 40,
+            FirstPartyUsedPercent = 40,
+            ApiUsedPercent = 0,
+            ModelsEstimatedLimitUsd = 450m,
+            ApiIncludedAmountUsd = 20m,
+            PeriodStart = CycleStart,
+            PeriodEnd = Reset30Days
+        };
+
+        var result = _calculator.Calculate(usage, CycleStart.AddDays(7));
+        var combined = QuotaMonetaryHelper.ResolveCombinedDisplay(usage);
+        var expectedTotalTarget = QuotaMonetaryHelper.ResolveCombinedLinearDailyTarget(
+            combined.RemainingPercent,
+            result.RemainingDays);
+
+        Assert.True(result.FirstParty.DailyTarget > 0);
+        Assert.Equal(0, result.Api.DailyTarget);
+        Assert.Equal(expectedTotalTarget, result.Total.DailyTarget, precision: 4);
+    }
+
+    [Fact]
+    public void Calculate_ApiReservePeriod_TotalDailyTarget_IncludesApiInCombinedLimit()
+    {
+        var usage = new QuotaUsage
+        {
+            TotalUsedPercent = 50,
+            FirstPartyUsedPercent = 60,
+            ApiUsedPercent = 40,
+            ModelsEstimatedLimitUsd = 450m,
+            ApiIncludedAmountUsd = 20m,
+            PeriodStart = CycleStart,
+            PeriodEnd = Reset30Days
+        };
+
+        var today = DailyPlanCalculator.GetApiPlanStart(Reset30Days);
+        var result = _calculator.Calculate(usage, today);
+        var combined = QuotaMonetaryHelper.ResolveCombinedDisplay(usage);
+        var expectedTotalTarget = QuotaMonetaryHelper.ResolveCombinedLinearDailyTarget(
+            combined.RemainingPercent,
+            result.RemainingDays);
+
+        Assert.Equal(0, result.FirstParty.DailyTarget);
+        Assert.True(result.Api.DailyTarget > 0);
+        Assert.Equal(expectedTotalTarget, result.Total.DailyTarget, precision: 4);
     }
 
     [Fact]

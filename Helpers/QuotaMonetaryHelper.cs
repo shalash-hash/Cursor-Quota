@@ -150,6 +150,14 @@ public static class QuotaMonetaryHelper
         return (double)(usedUsd.Value / limitUsd.Value * 100m);
     }
 
+    public static double ResolveCombinedLinearDailyTarget(double remainingPercent, int remainingDays)
+    {
+        if (remainingPercent <= 0 || remainingDays <= 0)
+            return 0;
+
+        return remainingPercent / remainingDays;
+    }
+
     public static double ResolveCombinedDayPercent(
         double modelsDayPercent,
         double apiDayPercent,

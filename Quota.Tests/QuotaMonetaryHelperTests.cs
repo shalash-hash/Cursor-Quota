@@ -68,4 +68,12 @@ public class QuotaMonetaryHelperTests
 
         Assert.Equal(5.71, percent, precision: 2);
     }
+
+    [Fact]
+    public void ResolveCombinedLinearDailyTarget_DividesRemainingByDays()
+    {
+        var target = QuotaMonetaryHelper.ResolveCombinedLinearDailyTarget(22.55, 6);
+
+        Assert.Equal(3.7583, target, precision: 3);
+    }
 }

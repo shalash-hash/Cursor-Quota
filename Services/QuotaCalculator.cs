@@ -59,10 +59,15 @@ public class QuotaCalculator
                     DailyPlanCalculator.CalculateLinearDailyPlan(remaining, today, periodEnd));
             });
 
+        var totalRemainingPercent = Math.Max(0, 100 - totalUsedPercent);
+        var totalDailyTarget = QuotaMonetaryHelper.ResolveCombinedLinearDailyTarget(
+            totalRemainingPercent,
+            remainingDays);
+
         var total = CalculateTotalPool(
             totalUsedPercent,
             usage.TodayTotalUsedPercent,
-            firstParty.DailyTarget + api.DailyTarget);
+            totalDailyTarget);
 
         return new QuotaCalculationResult
         {

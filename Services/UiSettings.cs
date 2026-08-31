@@ -10,6 +10,9 @@ public sealed class UiSettings
     [JsonPropertyName("preferredLanguage")]
     public string? PreferredLanguage { get; set; }
 
+    [JsonPropertyName("languageChosenByUser")]
+    public bool LanguageChosenByUser { get; set; }
+
     [JsonPropertyName("windowWidth")]
     public double? WindowWidth { get; set; }
 

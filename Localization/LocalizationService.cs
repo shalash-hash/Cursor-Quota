@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.Resources;
+using Quota.Helpers;
 using Quota.Resources;
 using Quota.Services;
 
@@ -50,7 +51,7 @@ public sealed class LocalizationService : ILocalizationService
     {
         _uiSettingsService = uiSettingsService;
         _uiSettings = _uiSettingsService.Load();
-        _selectedLanguage = ResolveInitialLanguage(_uiSettings.PreferredLanguage);
+        _selectedLanguage = ResolveInitialLanguage(_uiSettings);
         ApplyCulture(_selectedLanguage.Culture);
         Instance = this;
     }
@@ -70,6 +71,7 @@ public sealed class LocalizationService : ILocalizationService
             _selectedLanguage = value;
             var settings = _uiSettingsService.Load();
             settings.PreferredLanguage = value.Culture.Name;
+            settings.LanguageChosenByUser = true;
             _uiSettingsService.Save(settings);
             ApplyCulture(value.Culture);
             RaiseAllChanged();
@@ -97,20 +99,29 @@ public sealed class LocalizationService : ILocalizationService
         RaiseAllChanged();
     }
 
-    private static LanguageOption ResolveInitialLanguage(string? preferredLanguage)
+    internal static LanguageOption ResolveInitialLanguage(UiSettings settings)
     {
-        if (!string.IsNullOrWhiteSpace(preferredLanguage))
+        var hasUserChoice = settings.LanguageChosenByUser
+            || !string.IsNullOrWhiteSpace(settings.PreferredLanguage);
+
+        if (hasUserChoice && !string.IsNullOrWhiteSpace(settings.PreferredLanguage))
         {
-            var saved = FindBestMatch(CultureInfo.GetCultureInfo(preferredLanguage));
-            if (saved is not null)
-                return saved;
+            try
+            {
+                var saved = FindBestMatch(CultureInfo.GetCultureInfo(settings.PreferredLanguage));
+                if (saved is not null)
+                    return saved;
+            }
+            catch (CultureNotFoundException)
+            {
+            }
         }
 
-        return FindBestMatch(CultureInfo.CurrentUICulture)
+        return FindBestMatch(SystemCultureHelper.GetPrimaryCulture())
             ?? Languages.First(language => language.Culture.Name == "en");
     }
 
-    private static LanguageOption? FindBestMatch(CultureInfo culture)
+    internal static LanguageOption? FindBestMatch(CultureInfo culture)
     {
         var exact = Languages.FirstOrDefault(language =>
             string.Equals(language.Culture.Name, culture.Name, StringComparison.OrdinalIgnoreCase));
