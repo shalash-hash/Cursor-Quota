@@ -1,5 +1,24 @@
 namespace Quota.Helpers;
 
+public enum DailyPlanDeltaKind
+{
+    NoPlan,
+    OnPlan,
+    Ahead,
+    Behind
+}
+
+public readonly struct DailyPlanDelta
+{
+    public DailyPlanDeltaKind Kind { get; init; }
+
+    /// <summary>Относительное отклонение от дневного плана, % (всегда ≥ 0 для Ahead/Behind).</summary>
+    public double RelativeDeltaPercent { get; init; }
+
+    /// <summary>Абсолютная разница в процентных пунктах общей квоты: today − plan.</summary>
+    public double AbsoluteDeltaPercent { get; init; }
+}
+
 public readonly struct DailyTargetProgressState
 {
     public bool IsExceeded { get; init; }
@@ -15,6 +34,74 @@ public readonly struct DailyTargetProgressState
 
 public static class DailyTargetProgressCalculator
 {
+    public static DailyPlanDelta CalculatePlanDelta(double todayUsed, double dailyTarget)
+    {
+        if (dailyTarget <= 0)
+        {
+            if (todayUsed <= 0)
+            {
+                return new DailyPlanDelta { Kind = DailyPlanDeltaKind.NoPlan };
+            }
+
+            return new DailyPlanDelta
+            {
+                Kind = DailyPlanDeltaKind.Ahead,
+                RelativeDeltaPercent = 100,
+                AbsoluteDeltaPercent = todayUsed
+            };
+        }
+
+        var absoluteDelta = todayUsed - dailyTarget;
+        if (Math.Abs(absoluteDelta) < 1e-12)
+        {
+            return new DailyPlanDelta { Kind = DailyPlanDeltaKind.OnPlan };
+        }
+
+        var relativeDelta = absoluteDelta / dailyTarget * 100;
+        if (absoluteDelta > 0)
+        {
+            return new DailyPlanDelta
+            {
+                Kind = DailyPlanDeltaKind.Ahead,
+                RelativeDeltaPercent = relativeDelta,
+                AbsoluteDeltaPercent = absoluteDelta
+            };
+        }
+
+        return new DailyPlanDelta
+        {
+            Kind = DailyPlanDeltaKind.Behind,
+            RelativeDeltaPercent = -relativeDelta,
+            AbsoluteDeltaPercent = absoluteDelta
+        };
+    }
+
+    public static decimal? CalculateDeltaUsd(double todayPercent, double planPercent, decimal? limitUsd)
+    {
+        if (limitUsd is null or <= 0m)
+            return null;
+
+        return QuotaMonetaryHelper.PercentToUsd(todayPercent, limitUsd.Value)
+            - QuotaMonetaryHelper.PercentToUsd(planPercent, limitUsd.Value);
+    }
+
+    public static string FormatRelativeDeltaWithUsd(
+        double relativeDeltaPercent,
+        decimal? deltaUsd,
+        int decimalPlaces,
+        System.Globalization.CultureInfo culture)
+    {
+        var percentText = PercentageFormatter.Format(relativeDeltaPercent, decimalPlaces, culture);
+        if (deltaUsd is null)
+            return percentText;
+
+        return string.Format(
+            culture,
+            "{0} ({1})",
+            percentText,
+            QuotaMonetaryHelper.FormatUsd(Math.Abs(deltaUsd.Value), culture));
+    }
+
     public static DailyTargetProgressState Calculate(double todayUsed, double dailyTarget)
     {
         if (dailyTarget <= 0)

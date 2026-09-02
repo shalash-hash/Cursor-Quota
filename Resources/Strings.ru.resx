@@ -60,11 +60,20 @@
   <data name="TodayPlanCompleted" xml:space="preserve">
     <value>План на сегодня выполнен</value>
   </data>
+  <data name="TodayPlanCompletedExact" xml:space="preserve">
+    <value>Дневной план выполнен точно</value>
+  </data>
   <data name="OverDailyTargetFormat" xml:space="preserve">
     <value>+{0} сверх дневного ориентира</value>
   </data>
   <data name="AheadOfScheduleFormat" xml:space="preserve">
     <value>Опережение графика: {0}</value>
+  </data>
+  <data name="AheadOfDailyPlanFormat" xml:space="preserve">
+    <value>Опережение дневного плана: {0}</value>
+  </data>
+  <data name="BehindDailyPlanFormat" xml:space="preserve">
+    <value>Отставание от дневного плана: {0}</value>
   </data>
   <data name="CursorModelsLabel" xml:space="preserve">
     <value>Модели Cursor</value>

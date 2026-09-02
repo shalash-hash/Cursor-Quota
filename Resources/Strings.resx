@@ -60,11 +60,20 @@
   <data name="TodayPlanCompleted" xml:space="preserve">
     <value>Daily target reached</value>
   </data>
+  <data name="TodayPlanCompletedExact" xml:space="preserve">
+    <value>Daily target met exactly</value>
+  </data>
   <data name="OverDailyTargetFormat" xml:space="preserve">
     <value>+{0} above target</value>
   </data>
   <data name="AheadOfScheduleFormat" xml:space="preserve">
     <value>Ahead of schedule: {0}</value>
+  </data>
+  <data name="AheadOfDailyPlanFormat" xml:space="preserve">
+    <value>Ahead of daily target: {0}</value>
+  </data>
+  <data name="BehindDailyPlanFormat" xml:space="preserve">
+    <value>Behind daily target: {0}</value>
   </data>
   <data name="CursorModelsLabel" xml:space="preserve">
     <value>Cursor Models</value>

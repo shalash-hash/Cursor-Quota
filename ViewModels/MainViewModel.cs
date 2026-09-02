@@ -688,16 +688,24 @@ public class MainViewModel : ViewModelBase, IDisposable
             ? dailyProgress.AheadSegmentWeight * 100
             : 0;
 
+        var planDelta = DailyTargetProgressCalculator.CalculatePlanDelta(
+            usage.TodayTotalUsedPercent,
+            calculation.Total.DailyTarget);
+        var planDeltaUsd = DailyTargetProgressCalculator.CalculateDeltaUsd(
+            usage.TodayTotalUsedPercent,
+            calculation.Total.DailyTarget,
+            combined.LimitUsd);
+        var planDeltaText = DailyTargetProgressCalculator.FormatRelativeDeltaWithUsd(
+            planDelta.RelativeDeltaPercent,
+            planDeltaUsd,
+            digits,
+            culture);
+
         if (dailyProgress.IsExceeded)
         {
             DailyProgressNormLabel = PercentageFormatter.Format(100, digits, culture);
-            DailyProgressAheadLabel = calculation.Total.TodayOverage > 0
-                ? _localizationService.Format(
-                    "AheadOfScheduleFormat",
-                    FormatPercentWithUsd(
-                        calculation.Total.TodayOverage,
-                        combined.LimitUsd,
-                        culture))
+            DailyProgressAheadLabel = planDelta.Kind == DailyPlanDeltaKind.Ahead
+                ? _localizationService.Format("AheadOfDailyPlanFormat", planDeltaText)
                 : string.Empty;
         }
         else
@@ -706,21 +714,14 @@ public class MainViewModel : ViewModelBase, IDisposable
             DailyProgressAheadLabel = string.Empty;
         }
 
-        if (calculation.Total.IsTodayPlanCompleted)
+        TodayOverageText = string.Empty;
+        TodayStatusText = planDelta.Kind switch
         {
-            TodayStatusText = _localizationService["TodayPlanCompleted"];
-            TodayOverageText = string.Empty;
-        }
-        else
-        {
-            TodayStatusText = _localizationService.Format(
-                "TodayRemainingFormat",
-                FormatPercentWithUsd(
-                    calculation.Total.TodayRemaining,
-                    combined.LimitUsd,
-                    culture));
-            TodayOverageText = string.Empty;
-        }
+            DailyPlanDeltaKind.OnPlan => _localizationService["TodayPlanCompletedExact"],
+            DailyPlanDeltaKind.Ahead => _localizationService["TodayPlanCompleted"],
+            DailyPlanDeltaKind.Behind => _localizationService.Format("BehindDailyPlanFormat", planDeltaText),
+            _ => string.Empty
+        };
 
         FirstPartyUsedPercentText = PercentageFormatter.Format(usage.FirstPartyUsedPercent, digits, culture);
         FirstPartyProgressValue = Math.Max(0, usage.FirstPartyUsedPercent);
