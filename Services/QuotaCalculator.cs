@@ -24,50 +24,31 @@ public class QuotaCalculator
         var firstParty = CalculatePool(
             usage.FirstPartyUsedPercent,
             usage.TodayFirstPartyUsedPercent,
-            remaining =>
-            {
-                var hillPlan = DailyPlanCalculator.CalculateCursorModelDailyPlan(
-                    remaining,
-                    today,
-                    cycleStart,
-                    periodEnd);
-
-                if (hillPlan <= 0)
-                    return 0;
-
-                return Math.Max(
-                    hillPlan,
-                    DailyPlanCalculator.CalculateLinearDailyPlan(remaining, today, periodEnd));
-            });
+            remaining => DailyPlanCalculator.CalculateCursorModelDailyPlan(
+                remaining,
+                today,
+                cycleStart,
+                periodEnd));
 
         var api = CalculatePool(
             usage.ApiUsedPercent,
             usage.TodayApiUsedPercent,
-            remaining =>
-            {
-                var spreadPlan = DailyPlanCalculator.CalculateApiDailyPlan(
-                    remaining,
-                    today,
-                    cycleStart,
-                    periodEnd);
+            remaining => DailyPlanCalculator.CalculateApiDailyPlan(
+                remaining,
+                today,
+                cycleStart,
+                periodEnd));
 
-                if (spreadPlan <= 0)
-                    return 0;
-
-                return Math.Max(
-                    spreadPlan,
-                    DailyPlanCalculator.CalculateLinearDailyPlan(remaining, today, periodEnd));
-            });
-
-        var totalRemainingPercent = Math.Max(0, 100 - totalUsedPercent);
-        var totalDailyTarget = QuotaMonetaryHelper.ResolveCombinedLinearDailyTarget(
-            totalRemainingPercent,
-            remainingDays);
+        var combinedDailyTarget = QuotaMonetaryHelper.ResolveCombinedDayPercent(
+            firstParty.DailyTarget,
+            api.DailyTarget,
+            usage.ModelsEstimatedLimitUsd,
+            usage.ApiIncludedAmountUsd);
 
         var total = CalculateTotalPool(
             totalUsedPercent,
             usage.TodayTotalUsedPercent,
-            totalDailyTarget);
+            combinedDailyTarget);
 
         return new QuotaCalculationResult
         {

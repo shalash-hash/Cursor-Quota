@@ -4,16 +4,26 @@ namespace Quota.Services;
 
 public static class DailyPlanCalculator
 {
-    public const int CursorModelReserveDaysBeforeReset = 5;
+    public const int AcceleratedPhaseCalendarDays = 21;
 
-    public static DateTime GetCursorPlanEnd(DateTime realResetDate)
-        => realResetDate.AddDays(-CursorModelReserveDaysBeforeReset);
+    /// <summary>
+    /// Последний календарный день ускоренной фазы (включительно).
+    /// cycleStart — день 1; ровно 21 календарный день ⇒ cycleStart + 20 days.
+    /// </summary>
+    public static DateTime GetAcceleratedEndInclusive(DateTime cycleStart, DateTime realResetDate)
+    {
+        var candidate = cycleStart.AddDays(AcceleratedPhaseCalendarDays - 1);
+        return candidate < realResetDate ? candidate : realResetDate;
+    }
 
-    public static DateTime GetApiPlanStart(DateTime realResetDate)
-        => GetCursorPlanEnd(realResetDate).AddDays(1);
+    public static DateTime GetReservePhaseStart(DateTime cycleStart, DateTime realResetDate)
+        => GetAcceleratedEndInclusive(cycleStart, realResetDate).AddDays(1);
 
-    public static bool IsWithinApiReservePeriod(DateTime today, DateTime realResetDate)
-        => today > GetCursorPlanEnd(realResetDate);
+    public static bool IsWithinAcceleratedPhase(DateTime today, DateTime cycleStart, DateTime realResetDate)
+        => today <= GetAcceleratedEndInclusive(cycleStart, realResetDate);
+
+    public static bool IsWithinReservePhase(DateTime today, DateTime cycleStart, DateTime realResetDate)
+        => today > GetAcceleratedEndInclusive(cycleStart, realResetDate);
 
     public static int CalculateRemainingPlanDays(DateTime today, DateTime planEnd, double remainingPercent)
         => BillingCycleCalendar.CountRemainingDays(today, planEnd, remainingPercent);
@@ -46,11 +56,12 @@ public static class DailyPlanCalculator
         if (cursorRemaining <= 0)
             return 0;
 
-        var planEnd = ResolveCursorPlanEnd(cycleStart, realResetDate);
-        if (today > planEnd)
-            return 0;
+        var acceleratedEndInclusive = GetAcceleratedEndInclusive(cycleStart, realResetDate);
 
-        return CalculateHillDailyPlan(cursorRemaining, today, cycleStart, planEnd);
+        if (today <= acceleratedEndInclusive)
+            return CalculateHillDailyPlan(cursorRemaining, today, cycleStart, acceleratedEndInclusive);
+
+        return SpreadRemainingUntilReset(cursorRemaining, today, realResetDate);
     }
 
     public static double CalculateApiDailyPlan(
@@ -62,7 +73,7 @@ public static class DailyPlanCalculator
         if (apiRemaining <= 0)
             return 0;
 
-        if (!IsWithinApiReservePeriod(today, realResetDate))
+        if (IsWithinAcceleratedPhase(today, cycleStart, realResetDate))
             return 0;
 
         return SpreadRemainingUntilReset(apiRemaining, today, realResetDate);
@@ -80,23 +91,17 @@ public static class DailyPlanCalculator
         return cursorPlan + apiPlan;
     }
 
-    private static DateTime ResolveCursorPlanEnd(DateTime cycleStart, DateTime realResetDate)
-    {
-        var reserveEnd = GetCursorPlanEnd(realResetDate);
-        return reserveEnd < cycleStart ? realResetDate : reserveEnd;
-    }
-
     private static double CalculateHillDailyPlan(
         double remaining,
         DateTime today,
         DateTime cycleStart,
-        DateTime planEnd)
+        DateTime planEndInclusive)
     {
-        var remainingPlanDays = CalculateRemainingPlanDays(today, planEnd, remaining);
+        var remainingPlanDays = CalculateRemainingPlanDays(today, planEndInclusive, remaining);
         if (remainingPlanDays <= 0)
             return remaining;
 
-        var totalPlanDays = Math.Max(1, (planEnd - cycleStart).Days);
+        var totalPlanDays = Math.Max(1, (planEndInclusive - cycleStart).Days + 1);
         var elapsedDays = Math.Max(0, (today - cycleStart).Days);
         var progress = Math.Min(1.0, elapsedDays / (double)totalPlanDays);
         var nextProgress = Math.Min(1.0, (elapsedDays + 1) / (double)totalPlanDays);
@@ -118,39 +123,13 @@ public static class DailyPlanCalculator
         return 1 - remainingFraction * remainingFraction;
     }
 
-    private static double SpreadRemainingUntilPlanEnd(
-        double remainingPercent,
-        DateTime today,
-        DateTime planEnd)
-    {
-        var remainingPlanDays = CalculateRemainingPlanDays(today, planEnd, remainingPercent);
-
-        if (remainingPlanDays <= 0)
-            return remainingPercent;
-
-        return remainingPercent / remainingPlanDays;
-    }
-
     private static double SpreadRemainingUntilReset(double remainingPercent, DateTime today, DateTime realResetDate)
     {
-        var remainingPlanDays = CalculateReserveRemainingDays(today, realResetDate, remainingPercent);
+        var remainingPlanDays = CalculateRemainingPlanDays(today, realResetDate, remainingPercent);
 
         if (remainingPlanDays <= 0)
             return remainingPercent;
 
         return remainingPercent / remainingPlanDays;
-    }
-
-    private static int CalculateReserveRemainingDays(DateTime today, DateTime realResetDate, double remainingPercent)
-    {
-        if (realResetDate < today)
-            return remainingPercent > 0 ? 1 : 0;
-
-        var days = (int)(realResetDate - today).TotalDays + 1;
-
-        if (days <= 0 && remainingPercent > 0)
-            return 1;
-
-        return Math.Max(0, days);
     }
 }

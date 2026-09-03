@@ -176,12 +176,24 @@ public static class QuotaMonetaryHelper
         if (combinedLimit is null or <= 0m)
             return modelsDayPercent + apiDayPercent;
 
-        var modelsLimit = modelsLimitUsd ?? 0m;
-        var apiLimit = apiLimitUsd ?? 0m;
-        var usedUsd = PercentToUsd(modelsDayPercent, modelsLimit)
-            + PercentToUsd(apiDayPercent, apiLimit);
+        var usedUsd = ResolveCombinedDailyTargetUsd(
+            modelsDayPercent,
+            apiDayPercent,
+            modelsLimitUsd,
+            apiLimitUsd);
 
         return (double)(usedUsd / combinedLimit.Value * 100m);
+    }
+
+    public static decimal ResolveCombinedDailyTargetUsd(
+        double modelsDayPercent,
+        double apiDayPercent,
+        decimal? modelsLimitUsd,
+        decimal? apiLimitUsd)
+    {
+        var modelsLimit = modelsLimitUsd ?? 0m;
+        var apiLimit = apiLimitUsd ?? 0m;
+        return PercentToUsd(modelsDayPercent, modelsLimit) + PercentToUsd(apiDayPercent, apiLimit);
     }
 
     private static decimal? ResolveCombinedLimitFromParts(decimal? modelsLimitUsd, decimal? apiLimitUsd)
