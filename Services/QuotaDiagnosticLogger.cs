@@ -129,6 +129,21 @@ public class QuotaDiagnosticLogger
         Write($"[{DateTime.Now:HH:mm:ss}] REFRESH_FAILED source={source} error={error}");
     }
 
+    public void LogCursorAuthSessionChanged()
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] Cursor auth session changed");
+    }
+
+    public void LogCursorAuthSessionRemoved()
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] Cursor auth session removed");
+    }
+
+    public void LogAccessTokenExpiredRefreshing()
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] Access token expired, refreshing");
+    }
+
     private void Write(string message)
     {
         lock (_sync)

@@ -16,9 +16,7 @@
         Background="{DynamicResource WindowBackgroundBrush}"
         FlowDirection="{Binding CurrentFlowDirection, Source={x:Static loc:LocalizationService.Instance}}"
         WindowStartupLocation="CenterScreen">
-    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled">
-        <Grid Margin="16">
+    <Grid Margin="16">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -419,103 +417,154 @@
                 </Grid>
                 </Grid>
 
-                <Border Visibility="{Binding IsStatisticsView, Converter={StaticResource BoolToVisibilityConverter}}"
-                        Style="{StaticResource CardBorder}"
-                        Padding="14">
-                    <Grid>
+                <Grid Visibility="{Binding IsStatisticsView, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:Loc StatisticsTitle}"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   VerticalAlignment="Center"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding HistoryRangeOptions}"
+                                  SelectedValue="{Binding SelectedHistoryRange}"
+                                  SelectedValuePath="Range"
+                                  DisplayMemberPath="DisplayName"
+                                  Style="{StaticResource AppComboBox}"
+                                  MinWidth="130"
+                                  Height="28"/>
+                    </Grid>
+
+                    <TextBlock Grid.Row="1"
+                               Text="{Binding StatisticsSummaryText}"
+                               FontSize="11"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,0,0,10"/>
+
+                    <Grid Grid.Row="2">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <Grid Grid.Row="0" Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="{loc:Loc StatisticsTitle}"
-                                       FontSize="16"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                       VerticalAlignment="Center"/>
-                            <ComboBox Grid.Column="1"
-                                      ItemsSource="{Binding HistoryRangeOptions}"
-                                      SelectedValue="{Binding SelectedHistoryRange}"
-                                      SelectedValuePath="Range"
-                                      DisplayMemberPath="DisplayName"
-                                      Style="{StaticResource AppComboBox}"
-                                      MinWidth="130"
-                                      Height="28"/>
-                        </Grid>
+                        <Border Grid.Row="0"
+                                Style="{StaticResource CardBorder}"
+                                Padding="12"
+                                VerticalAlignment="Stretch">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="{loc:Loc DailyUsageChartTitle}"
+                                               FontSize="11"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                               Margin="0,0,16,0"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                                        <Rectangle Width="10" Height="10" Fill="{DynamicResource FirstPartyBrush}" RadiusX="2" RadiusY="2" Margin="0,0,6,0"/>
+                                        <TextBlock Text="{loc:Loc StatisticsLegendModels}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Rectangle Width="10" Height="10" Fill="{DynamicResource ApiBrush}" RadiusX="2" RadiusY="2" Margin="0,0,6,0"/>
+                                        <TextBlock Text="{loc:Loc StatisticsLegendApi}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <controls:UsageHistoryChart Grid.Row="1"
+                                                            Points="{Binding UsageHistoryPoints}"
+                                                            DecimalPlaces="{Binding SelectedDecimalPlaces}"
+                                                            Section="{x:Static controls:UsageHistoryChartSection.Daily}"
+                                                            VerticalAlignment="Stretch"
+                                                            HorizontalAlignment="Stretch"
+                                                            MinHeight="100">
+                                    <controls:UsageHistoryChart.Style>
+                                        <Style TargetType="controls:UsageHistoryChart">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasStatisticsData}" Value="False">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </controls:UsageHistoryChart.Style>
+                                </controls:UsageHistoryChart>
+                            </Grid>
+                        </Border>
 
-                        <TextBlock Grid.Row="1"
-                                   Text="{Binding StatisticsSummaryText}"
-                                   FontSize="11"
+                        <Border Grid.Row="1"
+                                Style="{StaticResource CardBorder}"
+                                Padding="12"
+                                Margin="0,10,0,0"
+                                VerticalAlignment="Stretch">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Rectangle Width="10" Height="10" Fill="{DynamicResource AccentBrush}" RadiusX="2" RadiusY="2" Margin="0,0,6,0"/>
+                                    <TextBlock Text="{loc:Loc CumulativeUsageChartTitle}"
+                                               FontSize="11"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                </StackPanel>
+                                <controls:UsageHistoryChart Grid.Row="1"
+                                                            Points="{Binding UsageHistoryPoints}"
+                                                            DecimalPlaces="{Binding SelectedDecimalPlaces}"
+                                                            Section="{x:Static controls:UsageHistoryChartSection.Cumulative}"
+                                                            VerticalAlignment="Stretch"
+                                                            HorizontalAlignment="Stretch"
+                                                            MinHeight="100">
+                                    <controls:UsageHistoryChart.Style>
+                                        <Style TargetType="controls:UsageHistoryChart">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasStatisticsData}" Value="False">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </controls:UsageHistoryChart.Style>
+                                </controls:UsageHistoryChart>
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Grid.Row="0"
+                                   Grid.RowSpan="2"
+                                   Text="{loc:Loc StatisticsEmptyData}"
+                                   FontSize="12"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                   Margin="0,0,0,10"/>
-
-                        <Grid Grid.Row="2" MinHeight="320">
-                            <controls:UsageHistoryChart Points="{Binding UsageHistoryPoints}"
-                                                        DecimalPlaces="{Binding SelectedDecimalPlaces}"
-                                                        MinHeight="300">
-                                <controls:UsageHistoryChart.Style>
-                                    <Style TargetType="controls:UsageHistoryChart">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding HasStatisticsData}" Value="False">
-                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </controls:UsageHistoryChart.Style>
-                            </controls:UsageHistoryChart>
-                            <TextBlock Text="{loc:Loc StatisticsEmptyData}"
-                                       FontSize="12"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       TextWrapping="Wrap"
-                                       VerticalAlignment="Center"
-                                       HorizontalAlignment="Center"
-                                       Margin="12">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding HasStatisticsData}" Value="False">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </Grid>
-
-                        <StackPanel Grid.Row="3"
-                                    Orientation="Horizontal"
-                                    Margin="0,10,0,0">
-                            <TextBlock Text="{loc:Loc DailyUsageChartTitle}"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       Margin="0,0,16,0"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
-                                <Rectangle Width="10" Height="10" Fill="{DynamicResource FirstPartyBrush}" RadiusX="2" RadiusY="2" Margin="0,0,6,0"/>
-                                <TextBlock Text="{loc:Loc StatisticsLegendModels}"
-                                           FontSize="11"
-                                           Foreground="{DynamicResource SecondaryTextBrush}"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
-                                <Rectangle Width="10" Height="10" Fill="{DynamicResource ApiBrush}" RadiusX="2" RadiusY="2" Margin="0,0,6,0"/>
-                                <TextBlock Text="{loc:Loc StatisticsLegendApi}"
-                                           FontSize="11"
-                                           Foreground="{DynamicResource SecondaryTextBrush}"/>
-                            </StackPanel>
-                            <TextBlock Text="{loc:Loc CumulativeUsageChartTitle}"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"/>
-                        </StackPanel>
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   Margin="12">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasStatisticsData}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </Grid>
-                </Border>
+                </Grid>
             </Grid>
 
             <Border Grid.Row="2"
@@ -546,9 +595,9 @@
                       IsChecked="{Binding IsStartupEnabled}"
                       Style="{StaticResource AppCheckBox}"
                       FontSize="12"
+                      Margin="0,12,0,0"
                       Foreground="{DynamicResource PrimaryTextBrush}"/>
-        </Grid>
-    </ScrollViewer>
+    </Grid>
 </Window>
 
 

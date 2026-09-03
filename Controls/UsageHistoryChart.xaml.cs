@@ -37,11 +37,17 @@ public partial class UsageHistoryChart : UserControl
             typeof(UsageHistoryChart),
             new PropertyMetadata(1, OnChartDataChanged));
 
+    public static readonly DependencyProperty SectionProperty =
+        DependencyProperty.Register(
+            nameof(Section),
+            typeof(UsageHistoryChartSection),
+            typeof(UsageHistoryChart),
+            new PropertyMetadata(UsageHistoryChartSection.Daily, OnChartDataChanged));
+
     private const double LeftPadding = 40;
     private const double RightPadding = 12;
     private const double TopPadding = 12;
     private const double BottomPadding = 28;
-    private const double SectionGap = 18;
     private const double TooltipHeadroom = 56;
 
     private UIElement? _hoverPopup;
@@ -67,13 +73,19 @@ public partial class UsageHistoryChart : UserControl
         set => SetValue(DecimalPlacesProperty, value);
     }
 
+    public UsageHistoryChartSection Section
+    {
+        get => (UsageHistoryChartSection)GetValue(SectionProperty);
+        set => SetValue(SectionProperty, value);
+    }
+
     private static void OnChartDataChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is UsageHistoryChart chart)
             chart.Redraw();
     }
 
-    private void OnSizeChanged(object sender, SizeChangedEventArgs e) => Redraw();
+    private void OnChartHostSizeChanged(object sender, SizeChangedEventArgs e) => Redraw();
 
     private void Redraw()
     {
@@ -84,36 +96,38 @@ public partial class UsageHistoryChart : UserControl
         if (points is null || points.Count == 0)
             return;
 
-        var width = Math.Max(0, ChartCanvas.ActualWidth);
-        var height = Math.Max(0, ChartCanvas.ActualHeight);
+        var width = Math.Max(0, ChartHost.ActualWidth);
+        var height = Math.Max(0, ChartHost.ActualHeight);
+        ChartCanvas.Width = width;
+        ChartCanvas.Height = height;
         if (width <= 1 || height <= 1)
             return;
 
-        var barAreaHeight = (height - SectionGap) * 0.48;
-        var lineAreaHeight = height - barAreaHeight - SectionGap;
-        var barTop = TopPadding;
-        var lineTop = barTop + barAreaHeight + SectionGap;
+        var plotHeight = height - TopPadding - BottomPadding;
         var plotWidth = width - LeftPadding - RightPadding;
 
-        var maxDaily = Math.Max(points.Max(point => point.DailySpentPercent), 0.1);
+        if (Section == UsageHistoryChartSection.Daily)
+        {
+            var maxDaily = Math.Max(points.Max(point => point.DailySpentPercent), 0.1);
+            var dailyScale = ChartAxisScaler.Create(maxDaily);
+            DrawSection(
+                points,
+                plotWidth,
+                TopPadding,
+                plotHeight,
+                dailyScale,
+                drawBars: true,
+                drawLine: false);
+            return;
+        }
+
         var maxCumulative = Math.Max(points.Max(point => point.CumulativeUsedPercent), 1);
-        var dailyScale = ChartAxisScaler.Create(maxDaily);
         var cumulativeScale = ChartAxisScaler.Create(maxCumulative);
-
         DrawSection(
             points,
             plotWidth,
-            barTop,
-            barAreaHeight,
-            dailyScale,
-            drawBars: true,
-            drawLine: false);
-
-        DrawSection(
-            points,
-            plotWidth,
-            lineTop,
-            lineAreaHeight,
+            TopPadding,
+            plotHeight,
             cumulativeScale,
             drawBars: false,
             drawLine: true);

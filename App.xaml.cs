@@ -23,7 +23,7 @@ public partial class App : WpfApplication
         };
 
         var diagnosticLogger = new QuotaDiagnosticLogger();
-        var authService = new CursorAuthService(_httpClient);
+        var authService = new CursorAuthService(_httpClient, diagnosticLogger);
         var quotaUsageProvider = new CursorQuotaUsageProvider(_httpClient, authService, diagnosticLogger);
         var quotaCalculator = new QuotaCalculator();
         var startupService = new StartupService();

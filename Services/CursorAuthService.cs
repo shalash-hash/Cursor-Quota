@@ -2,48 +2,108 @@ using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Data.Sqlite;
 
 namespace Quota.Services;
 
 public class CursorAuthService
 {
-    private const string AccessTokenKey = "cursorAuth/accessToken";
-    private const string RefreshTokenKey = "cursorAuth/refreshToken";
     private const string OAuthClientId = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB";
     private const string TokenEndpoint = "https://api2.cursor.sh/oauth/token";
 
     private readonly HttpClient _httpClient;
+    private readonly Func<string> _stateDatabasePathProvider;
+    private readonly ICursorAuthDiagnostics _diagnostics;
     private string? _cachedAccessToken;
+    private string? _cachedRefreshToken;
 
-    public CursorAuthService(HttpClient httpClient)
+    public CursorAuthService(
+        HttpClient httpClient,
+        QuotaDiagnosticLogger? logger = null,
+        Func<string>? stateDatabasePathProvider = null)
+        : this(
+            httpClient,
+            stateDatabasePathProvider
+                ?? (() => Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "Cursor",
+                    "User",
+                    "globalStorage",
+                    "state.vscdb")),
+            logger is not null
+                ? new QuotaDiagnosticLoggerAuthDiagnostics(logger)
+                : NullCursorAuthDiagnostics.Instance)
+    {
+    }
+
+    internal CursorAuthService(
+        HttpClient httpClient,
+        Func<string> stateDatabasePathProvider,
+        ICursorAuthDiagnostics diagnostics)
     {
         _httpClient = httpClient;
+        _stateDatabasePathProvider = stateDatabasePathProvider;
+        _diagnostics = diagnostics;
     }
 
     public async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken = default)
     {
-        if (_cachedAccessToken is not null && !IsTokenExpired(_cachedAccessToken))
-            return _cachedAccessToken;
+        var snapshot = await CursorAuthStateReader.ReadSnapshotAsync(
+            _stateDatabasePathProvider(),
+            cancellationToken);
 
-        var accessToken = await ReadValueAsync(AccessTokenKey, cancellationToken);
-        var refreshToken = await ReadValueAsync(RefreshTokenKey, cancellationToken);
-
-        if (string.IsNullOrWhiteSpace(accessToken) && string.IsNullOrWhiteSpace(refreshToken))
+        if (snapshot.IsEmpty)
+        {
+            ClearAuthCache();
+            _diagnostics.LogCursorAuthSessionRemoved();
             throw new CursorAuthException();
+        }
 
-        if (!string.IsNullOrWhiteSpace(accessToken) && !IsTokenExpired(accessToken))
+        var accessToken = NormalizeToken(snapshot.AccessToken);
+        var refreshToken = NormalizeToken(snapshot.RefreshToken);
+
+        if (HasSessionChanged(accessToken, refreshToken))
+        {
+            _diagnostics.LogCursorAuthSessionChanged();
+            _cachedAccessToken = null;
+        }
+
+        _cachedRefreshToken = refreshToken;
+
+        if (accessToken is not null && !IsTokenExpired(accessToken))
         {
             _cachedAccessToken = accessToken;
             return accessToken;
         }
 
-        if (string.IsNullOrWhiteSpace(refreshToken))
+        if (refreshToken is null)
+        {
+            ClearAuthCache();
             throw new CursorAuthException();
+        }
 
-        var refreshed = await RefreshAccessTokenAsync(refreshToken, cancellationToken);
-        _cachedAccessToken = refreshed;
-        return refreshed;
+        _diagnostics.LogAccessTokenExpiredRefreshing();
+        var refreshedAccessToken = await RefreshAccessTokenAsync(refreshToken, cancellationToken);
+        _cachedAccessToken = refreshedAccessToken;
+        return refreshedAccessToken;
+    }
+
+    internal void ClearAuthCache()
+    {
+        _cachedAccessToken = null;
+        _cachedRefreshToken = null;
+    }
+
+    internal string? CachedAccessToken => _cachedAccessToken;
+
+    internal string? CachedRefreshToken => _cachedRefreshToken;
+
+    private bool HasSessionChanged(string? accessToken, string? refreshToken)
+    {
+        if (_cachedAccessToken is null && _cachedRefreshToken is null)
+            return false;
+
+        return !string.Equals(accessToken, _cachedAccessToken, StringComparison.Ordinal)
+            || !string.Equals(refreshToken, _cachedRefreshToken, StringComparison.Ordinal);
     }
 
     private async Task<string> RefreshAccessTokenAsync(string refreshToken, CancellationToken cancellationToken)
@@ -81,34 +141,10 @@ public class CursorAuthService
         return newAccessToken;
     }
 
-    private static async Task<string?> ReadValueAsync(string key, CancellationToken cancellationToken)
-    {
-        var dbPath = GetStateDatabasePath();
-        if (!File.Exists(dbPath))
-            return null;
+    private static string? NormalizeToken(string? token) =>
+        string.IsNullOrWhiteSpace(token) ? null : token;
 
-        await using var connection = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
-        await connection.OpenAsync(cancellationToken);
-
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT value FROM ItemTable WHERE key = $key LIMIT 1";
-        command.Parameters.AddWithValue("$key", key);
-
-        var result = await command.ExecuteScalarAsync(cancellationToken);
-        return result as string;
-    }
-
-    private static string GetStateDatabasePath()
-    {
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Cursor",
-            "User",
-            "globalStorage",
-            "state.vscdb");
-    }
-
-    private static bool IsTokenExpired(string jwt)
+    internal static bool IsTokenExpired(string jwt)
     {
         try
         {
