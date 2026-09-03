@@ -90,6 +90,14 @@ public static class QuotaMonetaryHelper
         return string.Format(culture, "{0} ({1})", percentText, amountText);
     }
 
+    public static decimal? ResolveModelsRemainingUsd(QuotaUsage usage)
+    {
+        if (usage.ModelsUsedUsd is not decimal usedUsd || usage.ModelsEstimatedLimitUsd is not decimal limitUsd)
+            return null;
+
+        return Math.Max(0m, limitUsd - usedUsd);
+    }
+
     public static CombinedQuotaDisplay ResolveCombinedDisplay(QuotaUsage usage)
     {
         var usedUsd = ResolveCombinedUsedUsd(usage);

@@ -36,6 +36,36 @@ public class QuotaMonetaryHelperTests
     }
 
     [Fact]
+    public void ResolveModelsRemainingUsd_UsesLimitMinusUsed()
+    {
+        var usage = new QuotaUsage
+        {
+            ModelsUsedUsd = 443.79m,
+            ModelsEstimatedLimitUsd = 450m
+        };
+
+        Assert.Equal(6.21m, QuotaMonetaryHelper.ResolveModelsRemainingUsd(usage));
+    }
+
+    [Fact]
+    public void ResolveModelsRemainingUsd_DoesNotGoNegative()
+    {
+        var usage = new QuotaUsage
+        {
+            ModelsUsedUsd = 460m,
+            ModelsEstimatedLimitUsd = 450m
+        };
+
+        Assert.Equal(0m, QuotaMonetaryHelper.ResolveModelsRemainingUsd(usage));
+    }
+
+    [Fact]
+    public void ResolveModelsRemainingUsd_ReturnsNullWhenDataMissing()
+    {
+        Assert.Null(QuotaMonetaryHelper.ResolveModelsRemainingUsd(new QuotaUsage()));
+    }
+
+    [Fact]
     public void ResolveCombinedDisplay_IncludesApiPoolInLimitAndProgress()
     {
         var usage = new QuotaUsage

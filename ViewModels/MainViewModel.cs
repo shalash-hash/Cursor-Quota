@@ -62,6 +62,7 @@ public class MainViewModel : ViewModelBase, IDisposable
 
     private string _firstPartyUsedPercentText = "—";
     private string _firstPartySpendText = string.Empty;
+    private string _firstPartyRemainingText = string.Empty;
     private double _firstPartyProgressValue;
     private string _firstPartyPaceText = "—";
     private string _firstPartyTodaySpentText = "—";
@@ -383,6 +384,12 @@ public class MainViewModel : ViewModelBase, IDisposable
     {
         get => _firstPartySpendText;
         private set => SetProperty(ref _firstPartySpendText, value);
+    }
+
+    public string FirstPartyRemainingText
+    {
+        get => _firstPartyRemainingText;
+        private set => SetProperty(ref _firstPartyRemainingText, value);
     }
 
     public double FirstPartyProgressValue
@@ -737,6 +744,19 @@ public class MainViewModel : ViewModelBase, IDisposable
         {
             FirstPartySpendText = string.Empty;
         }
+
+        var modelsRemainingUsd = QuotaMonetaryHelper.ResolveModelsRemainingUsd(usage);
+        if (modelsRemainingUsd is not null)
+        {
+            FirstPartyRemainingText = _localizationService.Format(
+                "TotalRemainingFormat",
+                QuotaMonetaryHelper.FormatUsd(modelsRemainingUsd.Value, culture));
+        }
+        else
+        {
+            FirstPartyRemainingText = string.Empty;
+        }
+
         FirstPartyPaceText = _localizationService.Format(
             "PaceFormat",
             FormatPercentWithUsd(
@@ -1073,6 +1093,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         DailyProgressAheadLabel = string.Empty;
         FirstPartyUsedPercentText = dash;
         FirstPartySpendText = string.Empty;
+        FirstPartyRemainingText = string.Empty;
         FirstPartyPaceText = _localizationService.Format("PaceFormat", dashPercent);
         FirstPartyTodaySpentText = _localizationService.Format("DailySpentTodayFormat", dash);
         FirstPartyYesterdaySpentText = _localizationService.Format("DailySpentYesterdayFormat", dash);
