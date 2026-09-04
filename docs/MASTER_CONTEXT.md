@@ -107,7 +107,9 @@ App.xaml.cs (composition root)
 
 **Короткий цикл (< 21 дня):** `acceleratedEndInclusive` ограничен `realResetDate`; резервная фаза может отсутствовать.
 
-**Опережение / отставание:** `(today − plan) / plan × 100` (`DailyTargetProgressCalculator`).
+**Опережение / отставание:** сравнение факта и плана в **USD** (`DailyTargetProgressCalculator`, `QuotaMonetaryHelper`). Проценты — производное для отображения.
+
+**Combined Models + API:** каноническая единица расчёта — **USD**; pool-проценты не смешивать при сравнении fact vs plan (ahead/behind, plan completed). Combined % для «сегодня» и дневного плана — производное от combined USD / combined limit.
 
 ### Usage history
 

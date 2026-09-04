@@ -46,9 +46,12 @@ public class QuotaCalculator
             usage.ApiIncludedAmountUsd);
 
         var total = CalculateTotalPool(
+            usage,
             totalUsedPercent,
             usage.TodayTotalUsedPercent,
-            combinedDailyTarget);
+            combinedDailyTarget,
+            firstParty.DailyTarget,
+            api.DailyTarget);
 
         return new QuotaCalculationResult
         {
@@ -83,13 +86,32 @@ public class QuotaCalculator
     }
 
     private static PoolCalculation CalculateTotalPool(
+        QuotaUsage usage,
         double usedPercent,
         double todayUsedPercent,
-        double dailyTarget)
+        double dailyTarget,
+        double modelsDailyTarget,
+        double apiDailyTarget)
     {
         var remaining = Math.Max(0, 100 - usedPercent);
         var todayMetrics = CalculateTodayMetrics(todayUsedPercent, dailyTarget);
         var paceStatus = DeterminePaceStatus(todayUsedPercent, dailyTarget);
+
+        var isPlanCompleted = todayMetrics.IsPlanCompleted;
+        var paceStatusForTotal = paceStatus;
+        var todayUsageUsd = QuotaMonetaryHelper.ResolveTodayUsageUsd(usage);
+        if (todayUsageUsd is not null)
+        {
+            var dailyPlanUsd = QuotaMonetaryHelper.ResolveDailyPlanUsd(
+                modelsDailyTarget,
+                apiDailyTarget,
+                usage.ModelsEstimatedLimitUsd,
+                usage.ApiIncludedAmountUsd);
+            isPlanCompleted = DailyTargetProgressCalculator.IsDailyPlanCompletedFromUsd(
+                todayUsageUsd.Value,
+                dailyPlanUsd);
+            paceStatusForTotal = DeterminePaceStatusFromUsd(todayUsageUsd.Value, dailyPlanUsd);
+        }
 
         return new PoolCalculation
         {
@@ -98,11 +120,20 @@ public class QuotaCalculator
             DailyTarget = dailyTarget,
             TodayUsed = todayUsedPercent,
             TodayRemaining = todayMetrics.TodayRemaining,
-            IsTodayPlanCompleted = todayMetrics.IsPlanCompleted,
+            IsTodayPlanCompleted = isPlanCompleted,
             TodayOverage = todayMetrics.TodayOverage,
-            PaceStatus = paceStatus
+            PaceStatus = paceStatusForTotal
         };
     }
+
+    private static PaceStatus DeterminePaceStatusFromUsd(decimal todayUsd, decimal dailyPlanUsd) =>
+        DailyTargetProgressCalculator.CalculatePlanDeltaFromUsd(todayUsd, dailyPlanUsd).Kind switch
+        {
+            DailyPlanDeltaKind.Behind => PaceStatus.BelowPlan,
+            DailyPlanDeltaKind.Ahead => PaceStatus.AbovePlan,
+            DailyPlanDeltaKind.OnPlan => PaceStatus.OnPlan,
+            _ => todayUsd > 0 ? PaceStatus.AbovePlan : PaceStatus.OnPlan
+        };
 
     private static (double TodayRemaining, bool IsPlanCompleted, double TodayOverage) CalculateTodayMetrics(
         double todayUsedPercent,

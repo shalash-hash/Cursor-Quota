@@ -254,6 +254,20 @@
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource SpentTodayBrush}"
                                        Margin="0,0,0,2"/>
+                            <TextBlock Text="{Binding DailyTodayBreakdownText}"
+                                       Margin="0,0,0,2">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CardCenteredText}">
+                                        <Setter Property="FontSize" Value="10"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DailyTodayBreakdownText}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                             <TextBlock Text="{Binding DailyYesterdaySpentText}"
                                        Style="{StaticResource CardCenteredText}"
                                        FontSize="11"

@@ -196,6 +196,114 @@ public static class QuotaMonetaryHelper
         return PercentToUsd(modelsDayPercent, modelsLimit) + PercentToUsd(apiDayPercent, apiLimit);
     }
 
+    /// <summary>Сумма фактического дневного расхода Models + API в USD (канон для сравнения с планом).</summary>
+    public static decimal? ResolveModelsTodayUsd(QuotaUsage usage)
+    {
+        if (usage.TodayModelsSpendCents is long modelsCents)
+            return CentsToUsd(modelsCents);
+
+        if (usage.ModelsEstimatedLimitUsd is decimal modelsLimit)
+            return PercentToUsd(usage.TodayFirstPartyUsedPercent, modelsLimit);
+
+        return null;
+    }
+
+    public static decimal? ResolveApiTodayUsd(QuotaUsage usage)
+    {
+        if (usage.ApiIncludedAmountUsd is not decimal apiLimit)
+            return null;
+
+        return PercentToUsd(usage.TodayApiUsedPercent, apiLimit);
+    }
+
+    public static decimal? ResolveTodayUsageUsd(QuotaUsage usage)
+    {
+        var models = ResolveModelsTodayUsd(usage);
+        var api = ResolveApiTodayUsd(usage);
+
+        if (models is null && api is null)
+            return null;
+
+        return (models ?? 0m) + (api ?? 0m);
+    }
+
+    /// <summary>Combined today % от combined limit; USD — канон, не сумма pool-percent.</summary>
+    public static double? ResolveCombinedTodayPercent(QuotaUsage usage)
+    {
+        var todayUsd = ResolveTodayUsageUsd(usage);
+        var limitUsd = ResolveCombinedLimitUsd(usage);
+        if (todayUsd is null || limitUsd is null or <= 0m)
+            return null;
+
+        if (todayUsd <= 0m)
+            return 0;
+
+        return (double)(todayUsd.Value / limitUsd.Value * 100m);
+    }
+
+    public static double ResolveCombinedTodayPercentOrFallback(QuotaUsage usage) =>
+        ResolveCombinedTodayPercent(usage)
+        ?? ResolveCombinedDayPercent(
+            usage.TodayFirstPartyUsedPercent,
+            usage.TodayApiUsedPercent,
+            usage.ModelsEstimatedLimitUsd,
+            usage.ApiIncludedAmountUsd);
+
+    public static double ResolveCombinedTodayPercentFromParts(
+        long todayModelsSpendCents,
+        double todayModelsPercent,
+        double todayApiPercent,
+        decimal? modelsLimitUsd,
+        decimal? apiLimitUsd)
+    {
+        decimal? modelsUsd = todayModelsSpendCents > 0
+            ? CentsToUsd(todayModelsSpendCents)
+            : null;
+        if (modelsUsd is null && modelsLimitUsd is decimal modelsLimit)
+            modelsUsd = PercentToUsd(todayModelsPercent, modelsLimit);
+
+        decimal? apiUsd = apiLimitUsd is decimal apiLimit
+            ? PercentToUsd(todayApiPercent, apiLimit)
+            : null;
+
+        if (modelsUsd is null && apiUsd is null)
+        {
+            return ResolveCombinedDayPercent(
+                todayModelsPercent,
+                todayApiPercent,
+                modelsLimitUsd,
+                apiLimitUsd);
+        }
+
+        var todayUsd = (modelsUsd ?? 0m) + (apiUsd ?? 0m);
+        var combinedLimit = ResolveCombinedLimitFromParts(modelsLimitUsd, apiLimitUsd);
+        if (combinedLimit is null or <= 0m)
+        {
+            return ResolveCombinedDayPercent(
+                todayModelsPercent,
+                todayApiPercent,
+                modelsLimitUsd,
+                apiLimitUsd);
+        }
+
+        if (todayUsd <= 0m)
+            return 0;
+
+        return (double)(todayUsd / combinedLimit.Value * 100m);
+    }
+
+    /// <summary>Алиас для combined daily plan USD — единая точка для ahead/behind.</summary>
+    public static decimal ResolveDailyPlanUsd(
+        double modelsDailyPlanPercent,
+        double apiDailyPlanPercent,
+        decimal? modelsLimitUsd,
+        decimal? apiLimitUsd) =>
+        ResolveCombinedDailyTargetUsd(
+            modelsDailyPlanPercent,
+            apiDailyPlanPercent,
+            modelsLimitUsd,
+            apiLimitUsd);
+
     private static decimal? ResolveCombinedLimitFromParts(decimal? modelsLimitUsd, decimal? apiLimitUsd)
     {
         decimal? limitUsd = null;

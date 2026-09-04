@@ -34,6 +34,58 @@ public readonly struct DailyTargetProgressState
 
 public static class DailyTargetProgressCalculator
 {
+    private const decimal UsdEqualityEpsilon = 0.01m;
+
+    /// <summary>Каноническое сравнение факта и плана в USD (не смешивать pool-проценты).</summary>
+    public static DailyPlanDelta CalculatePlanDeltaFromUsd(decimal todayUsd, decimal dailyPlanUsd)
+    {
+        if (dailyPlanUsd <= 0)
+        {
+            if (todayUsd <= 0)
+                return new DailyPlanDelta { Kind = DailyPlanDeltaKind.NoPlan };
+
+            return new DailyPlanDelta
+            {
+                Kind = DailyPlanDeltaKind.Ahead,
+                RelativeDeltaPercent = 100,
+                AbsoluteDeltaPercent = (double)todayUsd
+            };
+        }
+
+        var absoluteDelta = todayUsd - dailyPlanUsd;
+        if (Math.Abs(absoluteDelta) < UsdEqualityEpsilon)
+            return new DailyPlanDelta { Kind = DailyPlanDeltaKind.OnPlan };
+
+        var relativeDelta = (double)(Math.Abs(absoluteDelta) / dailyPlanUsd * 100m);
+        if (absoluteDelta > 0)
+        {
+            return new DailyPlanDelta
+            {
+                Kind = DailyPlanDeltaKind.Ahead,
+                RelativeDeltaPercent = relativeDelta,
+                AbsoluteDeltaPercent = (double)absoluteDelta
+            };
+        }
+
+        return new DailyPlanDelta
+        {
+            Kind = DailyPlanDeltaKind.Behind,
+            RelativeDeltaPercent = relativeDelta,
+            AbsoluteDeltaPercent = (double)absoluteDelta
+        };
+    }
+
+    public static decimal CalculateDeltaUsdFromValues(decimal todayUsd, decimal dailyPlanUsd) =>
+        todayUsd - dailyPlanUsd;
+
+    public static DailyTargetProgressState CalculateFromUsd(decimal todayUsd, decimal dailyPlanUsd) =>
+        Calculate((double)todayUsd, (double)dailyPlanUsd);
+
+    /// <summary>План выполнен, если факт ≥ плана в USD (канон для combined Models + API).</summary>
+    public static bool IsDailyPlanCompletedFromUsd(decimal todayUsd, decimal dailyPlanUsd) =>
+        CalculatePlanDeltaFromUsd(todayUsd, dailyPlanUsd).Kind
+            is DailyPlanDeltaKind.Ahead or DailyPlanDeltaKind.OnPlan;
+
     public static DailyPlanDelta CalculatePlanDelta(double todayUsed, double dailyTarget)
     {
         if (dailyTarget <= 0)

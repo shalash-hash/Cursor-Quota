@@ -134,7 +134,8 @@ public class QuotaSnapshotRepository
 
         return CopyUsage(
             current,
-            QuotaMonetaryHelper.ResolveCombinedDayPercent(
+            QuotaMonetaryHelper.ResolveCombinedTodayPercentFromParts(
+                todaySpendCents,
                 today.FirstParty,
                 today.Api,
                 current.ModelsEstimatedLimitUsd,

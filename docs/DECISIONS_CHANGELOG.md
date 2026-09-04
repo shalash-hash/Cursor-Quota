@@ -75,12 +75,25 @@
 
 | Field | Value |
 |-------|-------|
-| **Decision** | **Фаза 1 (ускоренная):** ровно первые **21 календарный день** от `cycleStart` (день 1 = `cycleStart`); `acceleratedEndInclusive = min(cycleStart + 20 days, realResetDate)`; Phase 1 при `today <= acceleratedEndInclusive`. Пример 06.09→06.10: Phase 1 = 06.09–26.09, Reserve с 27.09. Дневной план **только Cursor Models** (hill); `apiDailyPlan = 0`. **Фаза 2 (резерв):** `today > acceleratedEndInclusive` до `realResetDate`. Остаток Models и API: `remaining / CalculateRemainingPlanDays(today, realResetDate)` (= `BillingCycleCalendar.CountRemainingDays`, `Ceiling(periodEnd − now)`). `realResetDate` — exclusive instant rollover; календарный день reset до rollover ещё 1 расходный день. Combined = сумма пулов. Ahead/behind: `(today − plan) / plan × 100`. |
+| **Decision** | **Фаза 1 (ускоренная):** ровно первые **21 календарный день** от `cycleStart` (день 1 = `cycleStart`); `acceleratedEndInclusive = min(cycleStart + 20 days, realResetDate)`; Phase 1 при `today <= acceleratedEndInclusive`. Пример 06.09→06.10: Phase 1 = 06.09–26.09, Reserve с 27.09. Дневной план **только Cursor Models** (hill); `apiDailyPlan = 0`. **Фаза 2 (резерв):** `today > acceleratedEndInclusive` до `realResetDate`. Остаток Models и API: `remaining / CalculateRemainingPlanDays(today, realResetDate)` (= `BillingCycleCalendar.CountRemainingDays`, `Ceiling(periodEnd − now)`). `realResetDate` — exclusive instant rollover; календарный день reset до rollover ещё 1 расходный день. Combined = сумма пулов. Ahead/behind и plan completed — см. запись «Combined daily plan comparisons use USD canon». |
 | **Supersedes** | 2026-03 — Cursor Models hill plan & API reserve (realReset−5, API-only last 5 days, Models=0 в резерве) |
 | **Reason** | Основной расход Models за первые 3 недели; остаток Models + API распределяются в хвосте до reset |
 | **Affected docs** | MASTER_CONTEXT § Daily plan |
 | **Affected code** | `DailyPlanCalculator`, `QuotaCalculator`, tests |
 | **Status** | **Active** |
+
+---
+
+## 2026-09 — Combined daily plan comparisons use USD canon
+
+| Field | Value |
+|-------|-------|
+| **Decision** | Для combined Models + API: ahead/behind, **plan completed** и **today %** сравнивают/выводят факт в **USD** (`ResolveTodayUsageUsd`, `ResolveCombinedTodayPercent`, `ResolveDailyPlanUsd`). Pool-проценты не смешивать как источник истины. Combined % — только для отображения (USD / combined limit). |
+| **Supersedes** | Percent-based `TodayTotalUsedPercent >= Total.DailyTarget` для combined plan completed |
+| **Reason** | Models и API имеют разные процентные базы; смешанные % давали ложное «опережение» и «план выполнен» |
+| **Affected docs** | MASTER_CONTEXT § Daily plan |
+| **Affected code** | `QuotaMonetaryHelper`, `DailyTargetProgressCalculator`, `QuotaCalculator`, `MainViewModel` |
+| **Status** | Active |
 
 ---
 

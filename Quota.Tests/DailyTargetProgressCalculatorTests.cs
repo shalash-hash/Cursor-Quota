@@ -94,4 +94,147 @@ public sealed class DailyTargetProgressCalculatorTests
 
         Assert.Equal(-0.20m, deltaUsd);
     }
+
+    // ── USD-canonical ahead/behind (regression: do not compare pool percents) ──
+
+    [Fact]
+    public void CalculatePlanDeltaFromUsd_LiveScenario_IsBehindNotAhead()
+    {
+        var delta = DailyTargetProgressCalculator.CalculatePlanDeltaFromUsd(2.04m, 8.14m);
+
+        Assert.Equal(DailyPlanDeltaKind.Behind, delta.Kind);
+        Assert.False(delta.Kind == DailyPlanDeltaKind.Ahead);
+        Assert.InRange(delta.RelativeDeltaPercent, 74.9, 75.0);
+        Assert.Equal(-6.10m, DailyTargetProgressCalculator.CalculateDeltaUsdFromValues(2.04m, 8.14m), precision: 2);
+    }
+
+    [Fact]
+    public void CalculatePlanDeltaFromUsd_LiveScenario_PlanNotCompleted()
+    {
+        var progress = DailyTargetProgressCalculator.CalculateFromUsd(2.04m, 8.14m);
+        var delta = DailyTargetProgressCalculator.CalculatePlanDeltaFromUsd(2.04m, 8.14m);
+
+        Assert.False(progress.IsExceeded);
+        Assert.Equal(DailyPlanDeltaKind.Behind, delta.Kind);
+        Assert.InRange(progress.PlanCompletionPercent, 25.0, 25.1);
+    }
+
+    [Fact]
+    public void CalculatePlanDeltaFromUsd_PlanExceeded_IsAheadAndCompleted()
+    {
+        var delta = DailyTargetProgressCalculator.CalculatePlanDeltaFromUsd(10m, 8m);
+        var progress = DailyTargetProgressCalculator.CalculateFromUsd(10m, 8m);
+
+        Assert.Equal(DailyPlanDeltaKind.Ahead, delta.Kind);
+        Assert.Equal(25, delta.RelativeDeltaPercent, precision: 6);
+        Assert.Equal(2m, DailyTargetProgressCalculator.CalculateDeltaUsdFromValues(10m, 8m));
+        Assert.True(progress.IsExceeded);
+    }
+
+    [Fact]
+    public void CalculatePlanDeltaFromUsd_ExactPlan_IsOnPlan()
+    {
+        var delta = DailyTargetProgressCalculator.CalculatePlanDeltaFromUsd(8m, 8m);
+        var progress = DailyTargetProgressCalculator.CalculateFromUsd(8m, 8m);
+
+        Assert.Equal(DailyPlanDeltaKind.OnPlan, delta.Kind);
+        Assert.Equal(0m, DailyTargetProgressCalculator.CalculateDeltaUsdFromValues(8m, 8m));
+        Assert.True(progress.PlanCompletionPercent >= 99.99);
+    }
+
+    [Fact]
+    public void CalculatePlanDeltaFromUsd_MixedPools_BehindByUsd()
+    {
+        var delta = DailyTargetProgressCalculator.CalculatePlanDeltaFromUsd(6m, 8m);
+
+        Assert.Equal(DailyPlanDeltaKind.Behind, delta.Kind);
+        Assert.Equal(25, delta.RelativeDeltaPercent, precision: 6);
+        Assert.Equal(-2m, DailyTargetProgressCalculator.CalculateDeltaUsdFromValues(6m, 8m));
+    }
+
+    [Fact]
+    public void CalculatePlanDeltaFromUsd_ModelsExhausted_ApiOnlyPlan()
+    {
+        var today = 2.04m;
+        var plan = 8.14m;
+        var delta = DailyTargetProgressCalculator.CalculatePlanDeltaFromUsd(today, plan);
+
+        Assert.Equal(DailyPlanDeltaKind.Behind, delta.Kind);
+        Assert.InRange(delta.RelativeDeltaPercent, 74.9, 75.0);
+    }
+
+    [Fact]
+    public void CalculatePlanDeltaFromUsd_ApiExhausted_ModelsOnlyPlan()
+    {
+        var delta = DailyTargetProgressCalculator.CalculatePlanDeltaFromUsd(3m, 5m);
+
+        Assert.Equal(DailyPlanDeltaKind.Behind, delta.Kind);
+        Assert.Equal(40, delta.RelativeDeltaPercent, precision: 6);
+    }
+
+    [Fact]
+    public void CalculatePlanDeltaFromUsd_ZeroPlanZeroToday_IsNoPlan()
+    {
+        var delta = DailyTargetProgressCalculator.CalculatePlanDeltaFromUsd(0m, 0m);
+
+        Assert.Equal(DailyPlanDeltaKind.NoPlan, delta.Kind);
+    }
+
+    [Fact]
+    public void CalculatePlanDeltaFromUsd_ZeroPlanWithUsage_IsAhead()
+    {
+        var delta = DailyTargetProgressCalculator.CalculatePlanDeltaFromUsd(1.50m, 0m);
+
+        Assert.Equal(DailyPlanDeltaKind.Ahead, delta.Kind);
+    }
+
+    [Fact]
+    public void IsDailyPlanCompletedFromUsd_LiveScenario_IsFalse()
+    {
+        Assert.False(DailyTargetProgressCalculator.IsDailyPlanCompletedFromUsd(2.04m, 8.14m));
+    }
+
+    [Fact]
+    public void IsDailyPlanCompletedFromUsd_PlanExceeded_IsTrue()
+    {
+        Assert.True(DailyTargetProgressCalculator.IsDailyPlanCompletedFromUsd(10m, 8m));
+    }
+
+    [Fact]
+    public void IsDailyPlanCompletedFromUsd_ExactPlan_IsTrue()
+    {
+        Assert.True(DailyTargetProgressCalculator.IsDailyPlanCompletedFromUsd(8m, 8m));
+    }
+
+    [Fact]
+    public void IsDailyPlanCompletedFromUsd_MixedPools_Behind_IsFalse()
+    {
+        Assert.False(DailyTargetProgressCalculator.IsDailyPlanCompletedFromUsd(6m, 8m));
+    }
+
+    [Fact]
+    public void IsDailyPlanCompletedFromUsd_ZeroPlanZeroToday_IsFalse()
+    {
+        Assert.False(DailyTargetProgressCalculator.IsDailyPlanCompletedFromUsd(0m, 0m));
+    }
+
+    [Fact]
+    public void IsDailyPlanCompletedFromUsd_ZeroPlanWithUsage_IsTrue()
+    {
+        Assert.True(DailyTargetProgressCalculator.IsDailyPlanCompletedFromUsd(1.50m, 0m));
+    }
+
+    [Fact]
+    public void PercentBasedDelta_WouldWronglyShowAhead_ForLiveScenario()
+    {
+        const double todayPercent = 3.88;
+        const double planPercent = 1.70;
+        var wrongDelta = DailyTargetProgressCalculator.CalculatePlanDelta(todayPercent, planPercent);
+
+        Assert.Equal(DailyPlanDeltaKind.Ahead, wrongDelta.Kind);
+        Assert.True(wrongDelta.RelativeDeltaPercent > 100);
+
+        var correctDelta = DailyTargetProgressCalculator.CalculatePlanDeltaFromUsd(2.04m, 8.14m);
+        Assert.Equal(DailyPlanDeltaKind.Behind, correctDelta.Kind);
+    }
 }

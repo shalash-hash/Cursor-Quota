@@ -138,6 +138,15 @@
   <data name="DailySpentTodayWithAmountFormat" xml:space="preserve">
     <value>Today {0} ({1})</value>
   </data>
+  <data name="DailyTodayBreakdownBothFormat" xml:space="preserve">
+    <value>Models {0} + API {1}</value>
+  </data>
+  <data name="DailyTodayBreakdownModelsOnlyFormat" xml:space="preserve">
+    <value>Models {0}</value>
+  </data>
+  <data name="DailyTodayBreakdownApiOnlyFormat" xml:space="preserve">
+    <value>API {0}</value>
+  </data>
   <data name="DailySpentYesterdayWithAmountFormat" xml:space="preserve">
     <value>Yesterday {0} ({1})</value>
   </data>

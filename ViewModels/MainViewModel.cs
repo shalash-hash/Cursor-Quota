@@ -46,6 +46,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     private string _totalTodaySpentText = "—";
     private string _totalYesterdaySpentText = "—";
     private string _dailyTodaySpentText = "—";
+    private string _dailyTodayBreakdownText = string.Empty;
     private string _dailyYesterdaySpentText = "—";
 
     private string _todaySpentText = "—";
@@ -300,6 +301,12 @@ public class MainViewModel : ViewModelBase, IDisposable
     {
         get => _dailyTodaySpentText;
         private set => SetProperty(ref _dailyTodaySpentText, value);
+    }
+
+    public string DailyTodayBreakdownText
+    {
+        get => _dailyTodayBreakdownText;
+        private set => SetProperty(ref _dailyTodayBreakdownText, value);
     }
 
     public string DailyYesterdaySpentText
@@ -680,9 +687,42 @@ public class MainViewModel : ViewModelBase, IDisposable
 
         TodaySpentText = DailyTodaySpentText;
 
-        var dailyProgress = DailyTargetProgressCalculator.Calculate(
-            usage.TodayTotalUsedPercent,
-            calculation.Total.DailyTarget);
+        var dailyPlanUsd = QuotaMonetaryHelper.ResolveDailyPlanUsd(
+            calculation.FirstParty.DailyTarget,
+            calculation.Api.DailyTarget,
+            usage.ModelsEstimatedLimitUsd,
+            usage.ApiIncludedAmountUsd);
+        var todayUsageUsd = QuotaMonetaryHelper.ResolveTodayUsageUsd(usage);
+
+        DailyTargetProgressState dailyProgress;
+        DailyPlanDelta planDelta;
+        decimal? planDeltaUsd;
+
+        if (todayUsageUsd is not null)
+        {
+            dailyProgress = DailyTargetProgressCalculator.CalculateFromUsd(
+                todayUsageUsd.Value,
+                dailyPlanUsd);
+            planDelta = DailyTargetProgressCalculator.CalculatePlanDeltaFromUsd(
+                todayUsageUsd.Value,
+                dailyPlanUsd);
+            planDeltaUsd = DailyTargetProgressCalculator.CalculateDeltaUsdFromValues(
+                todayUsageUsd.Value,
+                dailyPlanUsd);
+        }
+        else
+        {
+            dailyProgress = DailyTargetProgressCalculator.Calculate(
+                usage.TodayTotalUsedPercent,
+                calculation.Total.DailyTarget);
+            planDelta = DailyTargetProgressCalculator.CalculatePlanDelta(
+                usage.TodayTotalUsedPercent,
+                calculation.Total.DailyTarget);
+            planDeltaUsd = DailyTargetProgressCalculator.CalculateDeltaUsd(
+                usage.TodayTotalUsedPercent,
+                calculation.Total.DailyTarget,
+                combined.LimitUsd);
+        }
 
         IsDailyTargetExceeded = dailyProgress.IsExceeded;
         DailyProgressFillPercent = dailyProgress.FillPercent;
@@ -695,13 +735,6 @@ public class MainViewModel : ViewModelBase, IDisposable
             ? dailyProgress.AheadSegmentWeight * 100
             : 0;
 
-        var planDelta = DailyTargetProgressCalculator.CalculatePlanDelta(
-            usage.TodayTotalUsedPercent,
-            calculation.Total.DailyTarget);
-        var planDeltaUsd = DailyTargetProgressCalculator.CalculateDeltaUsd(
-            usage.TodayTotalUsedPercent,
-            calculation.Total.DailyTarget,
-            combined.LimitUsd);
         var planDeltaText = DailyTargetProgressCalculator.FormatRelativeDeltaWithUsd(
             planDelta.RelativeDeltaPercent,
             planDeltaUsd,
@@ -868,15 +901,17 @@ public class MainViewModel : ViewModelBase, IDisposable
 
     private void ApplyDailySpentTexts(QuotaUsage usage, CultureInfo culture)
     {
-        TotalTodaySpentText = FormatDailySpentToday(
-            usage.TodayTotalUsedPercent,
-            ComputeTodayTotalSpendUsd(usage));
+        var combinedTodayPercent = QuotaMonetaryHelper.ResolveCombinedTodayPercentOrFallback(usage);
+        var combinedTodayUsd = QuotaMonetaryHelper.ResolveTodayUsageUsd(usage);
+
+        TotalTodaySpentText = FormatDailySpentToday(combinedTodayPercent, combinedTodayUsd);
         TotalYesterdaySpentText = FormatDailySpentYesterday(
             usage.YesterdayTotalUsedPercent,
             ComputeYesterdayTotalSpendUsd(usage),
             usage.HasYesterdayUsageData);
 
         DailyTodaySpentText = TotalTodaySpentText;
+        DailyTodayBreakdownText = BuildDailyTodayBreakdownText(usage, culture);
         DailyYesterdaySpentText = TotalYesterdaySpentText;
 
         var modelsYesterdayPercent = ResolveModelsYesterdayPercent(usage);
@@ -904,16 +939,38 @@ public class MainViewModel : ViewModelBase, IDisposable
             usage.HasYesterdayUsageData);
     }
 
-    private decimal? ComputeTodayTotalSpendUsd(QuotaUsage usage)
+    private string BuildDailyTodayBreakdownText(QuotaUsage usage, CultureInfo culture)
     {
-        var models = SpendCentsToUsd(usage.TodayModelsSpendCents);
-        var api = ApiPercentToUsd(usage.TodayApiUsedPercent, usage.ApiIncludedAmountUsd);
+        var modelsUsd = QuotaMonetaryHelper.ResolveModelsTodayUsd(usage);
+        var apiUsd = QuotaMonetaryHelper.ResolveApiTodayUsd(usage);
+        var hasModels = modelsUsd is > 0.005m;
+        var hasApi = apiUsd is > 0.005m;
 
-        if (models is null && api is null)
-            return null;
+        if (!hasModels && !hasApi)
+            return string.Empty;
 
-        return (models ?? 0m) + (api ?? 0m);
+        if (hasModels && hasApi)
+        {
+            return _localizationService.Format(
+                "DailyTodayBreakdownBothFormat",
+                QuotaMonetaryHelper.FormatUsd(modelsUsd!.Value, culture),
+                QuotaMonetaryHelper.FormatUsd(apiUsd!.Value, culture));
+        }
+
+        if (hasModels)
+        {
+            return _localizationService.Format(
+                "DailyTodayBreakdownModelsOnlyFormat",
+                QuotaMonetaryHelper.FormatUsd(modelsUsd!.Value, culture));
+        }
+
+        return _localizationService.Format(
+            "DailyTodayBreakdownApiOnlyFormat",
+            QuotaMonetaryHelper.FormatUsd(apiUsd!.Value, culture));
     }
+
+    private decimal? ComputeTodayTotalSpendUsd(QuotaUsage usage) =>
+        QuotaMonetaryHelper.ResolveTodayUsageUsd(usage);
 
     private decimal? ComputeYesterdayTotalSpendUsd(QuotaUsage usage)
     {
@@ -1079,6 +1136,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         TotalTodaySpentText = _localizationService.Format("DailySpentTodayFormat", dash);
         TotalYesterdaySpentText = _localizationService.Format("DailySpentYesterdayFormat", dash);
         DailyTodaySpentText = TotalTodaySpentText;
+        DailyTodayBreakdownText = string.Empty;
         DailyYesterdaySpentText = TotalYesterdaySpentText;
         TodaySpentText = TotalTodaySpentText;
         TodayStatusText = string.Empty;
