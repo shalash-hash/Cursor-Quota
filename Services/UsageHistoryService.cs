@@ -49,17 +49,10 @@ public sealed class UsageHistoryService
             var cumulative = ResolveCumulativePercent(bucketSnapshots[^1]);
             var lastSnapshot = bucketSnapshots[^1];
             var daySpendUsd = AggregateBucketSpendUsd(snapshotsForAggregation, bucketSnapshots);
-            var modelsLimitUsd = ResolveModelsLimitUsd(lastSnapshot);
-            var apiLimitUsd = lastSnapshot.LimitCents is long limitCents
-                ? QuotaMonetaryHelper.CentsToUsd(limitCents)
-                : 20m;
-
-            decimal? modelsUsd = daySpendUsd.ModelsUsd > 0m ? daySpendUsd.ModelsUsd : null;
-            decimal? apiUsd = daySpendUsd.ApiUsd > 0m ? daySpendUsd.ApiUsd : null;
-            decimal? totalUsd = daySpendUsd.CombinedUsd > 0m ? daySpendUsd.CombinedUsd : null;
-
-            if (totalUsd is null && dailySpent.Total > 0 && modelsLimitUsd is not null)
-                totalUsd = QuotaMonetaryHelper.PercentToUsd(dailySpent.Total, modelsLimitUsd.Value);
+            var (modelsUsd, apiUsd, totalUsd) = UsageHistoryDayUsdResolver.Resolve(
+                dailySpent,
+                daySpendUsd,
+                lastSnapshot);
 
             decimal? cumulativeUsd = lastSnapshot.TotalSpendCents is long cumulativeCents
                 ? QuotaMonetaryHelper.CentsToUsd(cumulativeCents)
@@ -233,14 +226,6 @@ public sealed class UsageHistoryService
         };
 
         return QuotaMonetaryHelper.ResolveCombinedUsedPercent(usage) ?? snapshot.TotalPercent;
-    }
-
-    private static decimal? ResolveModelsLimitUsd(QuotaSnapshot snapshot)
-    {
-        if (snapshot.TotalSpendCents is not long spendCents || snapshot.FirstPartyPercent <= 0)
-            return null;
-
-        return QuotaMonetaryHelper.EstimateLimitUsd(spendCents, snapshot.FirstPartyPercent);
     }
 
     private static string FormatBucketLabel(

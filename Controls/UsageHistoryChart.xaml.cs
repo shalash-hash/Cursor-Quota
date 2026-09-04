@@ -108,8 +108,8 @@ public partial class UsageHistoryChart : UserControl
 
         if (Section == UsageHistoryChartSection.Daily)
         {
-            var maxDaily = Math.Max(points.Max(point => point.DailySpentPercent), 0.1);
-            var dailyScale = ChartAxisScaler.Create(maxDaily);
+            var maxDailyUsd = UsageHistoryChartValues.ResolveAxisMaxUsd(points);
+            var dailyScale = ChartAxisScaler.Create(maxDailyUsd);
             DrawSection(
                 points,
                 plotWidth,
@@ -117,7 +117,8 @@ public partial class UsageHistoryChart : UserControl
                 plotHeight,
                 dailyScale,
                 drawBars: true,
-                drawLine: false);
+                drawLine: false,
+                useUsdBarValues: true);
             return;
         }
 
@@ -130,7 +131,8 @@ public partial class UsageHistoryChart : UserControl
             plotHeight,
             cumulativeScale,
             drawBars: false,
-            drawLine: true);
+            drawLine: true,
+            useUsdBarValues: false);
     }
 
     private void DrawSection(
@@ -140,7 +142,8 @@ public partial class UsageHistoryChart : UserControl
         double plotHeight,
         ChartAxisScaler.Scale scale,
         bool drawBars,
-        bool drawLine)
+        bool drawLine,
+        bool useUsdBarValues)
     {
         var accentBrush = GetBrush("AccentBrush");
         var modelsBrush = GetBrush("FirstPartyBrush");
@@ -167,7 +170,9 @@ public partial class UsageHistoryChart : UserControl
 
             var text = new TextBlock
             {
-                Text = ChartAxisScaler.FormatTick(tick, culture),
+                Text = useUsdBarValues
+                    ? UsageHistoryChartValues.FormatUsdAxisTick(tick, culture)
+                    : ChartAxisScaler.FormatTick(tick, culture),
                 FontSize = 10,
                 Foreground = labelBrush,
                 Width = LeftPadding - 4,
@@ -187,11 +192,27 @@ public partial class UsageHistoryChart : UserControl
             {
                 var point = points[index];
                 var centerX = LeftPadding + bucketWidth * index + bucketWidth / 2;
-                var modelsHeight = plotHeight * point.DailyModelsPercent / axisMax;
-                var apiHeight = plotHeight * point.DailyApiPercent / axisMax;
+                var modelsValue = useUsdBarValues
+                    ? UsageHistoryChartValues.ResolveBarHeightFraction(
+                        UsageHistoryChartValues.ResolveModelsDayUsd(point),
+                        axisMax)
+                    : point.DailyModelsPercent / axisMax;
+                var apiValue = useUsdBarValues
+                    ? UsageHistoryChartValues.ResolveBarHeightFraction(
+                        UsageHistoryChartValues.ResolveApiDayUsd(point),
+                        axisMax)
+                    : point.DailyApiPercent / axisMax;
+                var totalValue = useUsdBarValues
+                    ? UsageHistoryChartValues.ResolveBarHeightFraction(
+                        UsageHistoryChartValues.ResolveTotalDayUsd(point),
+                        axisMax)
+                    : point.DailySpentPercent / axisMax;
+
+                var modelsHeight = plotHeight * modelsValue;
+                var apiHeight = plotHeight * apiValue;
                 var x = centerX - barWidth / 2;
                 var totalBarHeight = Math.Max(modelsHeight + apiHeight,
-                    point.DailySpentPercent > 0.001 ? plotHeight * point.DailySpentPercent / axisMax : 0);
+                    totalValue > 0.000001 ? plotHeight * totalValue : 0);
 
                 if (modelsHeight > 0.5)
                 {
@@ -223,9 +244,9 @@ public partial class UsageHistoryChart : UserControl
                     Canvas.SetTop(ChartCanvas.Children[^1], top + plotHeight - apiHeight);
                 }
 
-                if (modelsHeight <= 0.5 && apiHeight <= 0.5 && point.DailySpentPercent > 0.001)
+                if (modelsHeight <= 0.5 && apiHeight <= 0.5 && totalValue > 0.000001)
                 {
-                    var totalHeight = plotHeight * point.DailySpentPercent / axisMax;
+                    var totalHeight = plotHeight * totalValue;
                     ChartCanvas.Children.Add(new Rectangle
                     {
                         Width = barWidth,

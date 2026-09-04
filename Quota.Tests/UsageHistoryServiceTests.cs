@@ -83,6 +83,60 @@ public class UsageHistoryServiceTests
     }
 
     [Fact]
+    public async Task BuildAsync_Month_PercentOnlyLegacySnapshots_StillPopulateDailyUsd()
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(), $"quota-history-{Guid.NewGuid():N}.db");
+        var repository = new QuotaSnapshotRepository(databasePath);
+        var service = new UsageHistoryService(repository);
+
+        try
+        {
+            var periodStart = new DateTime(2026, 8, 6, 12, 0, 0);
+            var periodEnd = new DateTime(2026, 9, 6, 12, 0, 0);
+            var reference = new DateTime(2026, 8, 22, 16, 0, 0);
+
+            await repository.SaveSnapshotAsync(CreateUsage(
+                periodStart,
+                periodEnd,
+                new DateTime(2026, 8, 21, 22, 0, 0),
+                total: 10,
+                firstParty: 10,
+                api: 0,
+                totalSpend: null,
+                includedSpend: null,
+                limit: 2000));
+
+            await repository.SaveSnapshotAsync(CreateUsage(
+                periodStart,
+                periodEnd,
+                new DateTime(2026, 8, 22, 15, 30, 0),
+                total: 23.15,
+                firstParty: 23.15,
+                api: 0,
+                totalSpend: null,
+                includedSpend: null,
+                limit: 2000));
+
+            var result = await service.BuildAsync(
+                UsageHistoryRange.Month,
+                reference,
+                System.Globalization.CultureInfo.InvariantCulture);
+
+            var august22 = result.Points.Single(point => point.BucketStart.Date == new DateTime(2026, 8, 22));
+            Assert.InRange(august22.DailySpentPercent, 13.1, 13.2);
+            Assert.NotNull(august22.DailyModelsSpentUsd);
+            Assert.NotNull(august22.DailyTotalSpentUsd);
+            Assert.True(august22.DailyTotalSpentUsd > 50m);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(databasePath))
+                File.Delete(databasePath);
+        }
+    }
+
+    [Fact]
     public async Task BuildAsync_Week_ShowsTodaySpend_WhenOnlyOneSnapshotExistsToday()
     {
         var databasePath = Path.Combine(Path.GetTempPath(), $"quota-history-{Guid.NewGuid():N}.db");
