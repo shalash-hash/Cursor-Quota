@@ -90,72 +90,76 @@ public static class QuotaMonetaryHelper
         return string.Format(culture, "{0} ({1})", percentText, amountText);
     }
 
+    public static decimal? ResolveModelsBaseLimitUsd(QuotaUsage usage) =>
+        usage.ModelsBaseLimitUsd ?? usage.ModelsEstimatedLimitUsd;
+
     public static decimal? ResolveModelsRemainingUsd(QuotaUsage usage)
     {
-        if (usage.ModelsUsedUsd is not decimal usedUsd || usage.ModelsEstimatedLimitUsd is not decimal limitUsd)
+        var modelsActual = QuotaSpendResolver.ResolveModelsActualUsedUsd(usage);
+        if (modelsActual is not decimal actualUsd)
             return null;
 
-        return Math.Max(0m, limitUsd - usedUsd);
+        if (ResolveModelsBaseLimitUsd(usage) is not decimal limitUsd)
+            return null;
+
+        return Math.Max(0m, limitUsd - Math.Min(actualUsd, limitUsd));
     }
 
     public static CombinedQuotaDisplay ResolveCombinedDisplay(QuotaUsage usage)
     {
-        var usedUsd = ResolveCombinedUsedUsd(usage);
-        var limitUsd = ResolveCombinedLimitUsd(usage);
+        var baseUsedUsd = ResolveCombinedBaseUsedUsd(usage);
+        var limitUsd = ResolveCombinedBaseLimitUsd(usage);
         var usedPercent = ResolveCombinedUsedPercent(usage) ?? usage.TotalUsedPercent;
         var remainingPercent = Math.Max(0, 100 - usedPercent);
 
-        decimal? remainingUsd = usedUsd is not null && limitUsd is not null
-            ? Math.Max(0m, limitUsd.Value - usedUsd.Value)
+        decimal? remainingUsd = baseUsedUsd is not null && limitUsd is not null
+            ? Math.Max(0m, limitUsd.Value - baseUsedUsd.Value)
             : null;
 
         return new CombinedQuotaDisplay(
             usedPercent,
-            usedUsd,
+            baseUsedUsd,
             limitUsd,
             remainingUsd,
-            remainingPercent);
+            remainingPercent,
+            usage.ModelsBonusUsedUsd,
+            usage.ApiBonusUsedUsd,
+            usage.BonusAvailability);
     }
 
-    public static decimal? ResolveCombinedLimitUsd(QuotaUsage usage)
+    public static decimal? ResolveCombinedBaseLimitUsd(QuotaUsage usage)
     {
         decimal? limitUsd = null;
 
-        if (usage.ModelsEstimatedLimitUsd is decimal modelsLimit)
+        if (ResolveModelsBaseLimitUsd(usage) is decimal modelsLimit)
             limitUsd = modelsLimit;
 
         if (usage.ApiIncludedAmountUsd is decimal apiLimit)
             limitUsd = (limitUsd ?? 0m) + apiLimit;
 
+        if (usage.ApiKnownBonusAllowanceUsd is decimal apiBonusAllowance)
+            limitUsd = (limitUsd ?? 0m) + apiBonusAllowance;
+
         return limitUsd;
     }
 
-    public static decimal? ResolveCombinedUsedUsd(QuotaUsage usage)
-    {
-        if (usage.ModelsUsedUsd is decimal modelsUsed || usage.ApiUsedAmountUsd is decimal apiUsed)
-            return (usage.ModelsUsedUsd ?? 0m) + (usage.ApiUsedAmountUsd ?? 0m);
+    public static decimal? ResolveCombinedLimitUsd(QuotaUsage usage) =>
+        ResolveCombinedBaseLimitUsd(usage);
 
-        var limitUsd = ResolveCombinedLimitUsd(usage);
-        if (limitUsd is null or <= 0m)
-            return null;
+    public static decimal? ResolveCombinedBaseUsedUsd(QuotaUsage usage) =>
+        QuotaSpendResolver.ResolveCombinedBaseUsedUsd(usage);
 
-        var modelsLimit = usage.ModelsEstimatedLimitUsd ?? 0m;
-        var apiLimit = usage.ApiIncludedAmountUsd ?? 0m;
-        if (modelsLimit <= 0m && apiLimit <= 0m)
-            return null;
-
-        return PercentToUsd(usage.FirstPartyUsedPercent, modelsLimit)
-            + PercentToUsd(usage.ApiUsedPercent, apiLimit);
-    }
+    public static decimal? ResolveCombinedUsedUsd(QuotaUsage usage) =>
+        QuotaSpendResolver.ResolveCombinedActualUsedUsd(usage);
 
     public static double? ResolveCombinedUsedPercent(QuotaUsage usage)
     {
-        var usedUsd = ResolveCombinedUsedUsd(usage);
-        var limitUsd = ResolveCombinedLimitUsd(usage);
-        if (usedUsd is null || limitUsd is null or <= 0m)
+        var baseUsedUsd = ResolveCombinedBaseUsedUsd(usage);
+        var baseLimitUsd = ResolveCombinedBaseLimitUsd(usage);
+        if (baseUsedUsd is null || baseLimitUsd is null or <= 0m)
             return null;
 
-        return (double)(usedUsd.Value / limitUsd.Value * 100m);
+        return (double)(baseUsedUsd.Value / baseLimitUsd.Value * 100m);
     }
 
     public static double ResolveCombinedLinearDailyTarget(double remainingPercent, int remainingDays)
@@ -196,36 +200,15 @@ public static class QuotaMonetaryHelper
         return PercentToUsd(modelsDayPercent, modelsLimit) + PercentToUsd(apiDayPercent, apiLimit);
     }
 
-    /// <summary>Сумма фактического дневного расхода Models + API в USD (канон для сравнения с планом).</summary>
-    public static decimal? ResolveModelsTodayUsd(QuotaUsage usage)
-    {
-        if (usage.TodayModelsSpendCents is long modelsCents)
-            return CentsToUsd(modelsCents);
+    /// <summary>Сумма фактического дневного расхода за billing day = delta raw totalSpend.</summary>
+    public static decimal? ResolveModelsTodayUsd(QuotaUsage usage) =>
+        QuotaSpendResolver.ResolveModelsTodayUsd(usage);
 
-        if (usage.ModelsEstimatedLimitUsd is decimal modelsLimit)
-            return PercentToUsd(usage.TodayFirstPartyUsedPercent, modelsLimit);
+    public static decimal? ResolveApiTodayUsd(QuotaUsage usage) =>
+        QuotaSpendResolver.ResolveApiTodayUsd(usage);
 
-        return null;
-    }
-
-    public static decimal? ResolveApiTodayUsd(QuotaUsage usage)
-    {
-        if (usage.ApiIncludedAmountUsd is not decimal apiLimit)
-            return null;
-
-        return PercentToUsd(usage.TodayApiUsedPercent, apiLimit);
-    }
-
-    public static decimal? ResolveTodayUsageUsd(QuotaUsage usage)
-    {
-        var models = ResolveModelsTodayUsd(usage);
-        var api = ResolveApiTodayUsd(usage);
-
-        if (models is null && api is null)
-            return null;
-
-        return (models ?? 0m) + (api ?? 0m);
-    }
+    public static decimal? ResolveTodayUsageUsd(QuotaUsage usage) =>
+        QuotaSpendResolver.ResolveCombinedTodayUsd(usage);
 
     /// <summary>Combined today % от combined limit; USD — канон, не сумма pool-percent.</summary>
     public static double? ResolveCombinedTodayPercent(QuotaUsage usage)
@@ -250,32 +233,44 @@ public static class QuotaMonetaryHelper
             usage.ApiIncludedAmountUsd);
 
     public static double ResolveCombinedTodayPercentFromParts(
+        long todayTotalSpendCents,
         long todayModelsSpendCents,
+        long todayApiSpendCents,
         double todayModelsPercent,
         double todayApiPercent,
         decimal? modelsLimitUsd,
         decimal? apiLimitUsd)
     {
-        decimal? modelsUsd = todayModelsSpendCents > 0
-            ? CentsToUsd(todayModelsSpendCents)
-            : null;
-        if (modelsUsd is null && modelsLimitUsd is decimal modelsLimit)
-            modelsUsd = PercentToUsd(todayModelsPercent, modelsLimit);
-
-        decimal? apiUsd = apiLimitUsd is decimal apiLimit
-            ? PercentToUsd(todayApiPercent, apiLimit)
+        decimal? combinedUsd = todayTotalSpendCents > 0
+            ? CentsToUsd(todayTotalSpendCents)
             : null;
 
-        if (modelsUsd is null && apiUsd is null)
+        if (combinedUsd is null)
         {
-            return ResolveCombinedDayPercent(
-                todayModelsPercent,
-                todayApiPercent,
-                modelsLimitUsd,
-                apiLimitUsd);
+            decimal? modelsUsd = todayModelsSpendCents > 0
+                ? CentsToUsd(todayModelsSpendCents)
+                : null;
+            if (modelsUsd is null && modelsLimitUsd is decimal modelsLimit)
+                modelsUsd = PercentToUsd(todayModelsPercent, modelsLimit);
+
+            decimal? apiUsd = todayApiSpendCents > 0
+                ? CentsToUsd(todayApiSpendCents)
+                : apiLimitUsd is decimal apiLimit
+                    ? PercentToUsd(todayApiPercent, apiLimit)
+                    : null;
+
+            if (modelsUsd is null && apiUsd is null)
+            {
+                return ResolveCombinedDayPercent(
+                    todayModelsPercent,
+                    todayApiPercent,
+                    modelsLimitUsd,
+                    apiLimitUsd);
+            }
+
+            combinedUsd = (modelsUsd ?? 0m) + (apiUsd ?? 0m);
         }
 
-        var todayUsd = (modelsUsd ?? 0m) + (apiUsd ?? 0m);
         var combinedLimit = ResolveCombinedLimitFromParts(modelsLimitUsd, apiLimitUsd);
         if (combinedLimit is null or <= 0m)
         {
@@ -286,11 +281,27 @@ public static class QuotaMonetaryHelper
                 apiLimitUsd);
         }
 
-        if (todayUsd <= 0m)
+        if (combinedUsd <= 0m)
             return 0;
 
-        return (double)(todayUsd / combinedLimit.Value * 100m);
+        return (double)(combinedUsd.Value / combinedLimit.Value * 100m);
     }
+
+    /// <summary>Legacy overload — todayModelsSpendCents treated as total delta when api cents absent.</summary>
+    public static double ResolveCombinedTodayPercentFromParts(
+        long todayModelsSpendCents,
+        double todayModelsPercent,
+        double todayApiPercent,
+        decimal? modelsLimitUsd,
+        decimal? apiLimitUsd) =>
+        ResolveCombinedTodayPercentFromParts(
+            todayModelsSpendCents,
+            0,
+            0,
+            todayModelsPercent,
+            todayApiPercent,
+            modelsLimitUsd,
+            apiLimitUsd);
 
     /// <summary>Алиас для combined daily plan USD — единая точка для ahead/behind.</summary>
     public static decimal ResolveDailyPlanUsd(
@@ -323,4 +334,7 @@ public readonly record struct CombinedQuotaDisplay(
     decimal? UsedUsd,
     decimal? LimitUsd,
     decimal? RemainingUsd,
-    double RemainingPercent);
+    double RemainingPercent,
+    decimal? ModelsBonusUsedUsd = null,
+    decimal? ApiBonusUsedUsd = null,
+    BonusAvailability ModelsBonusAvailability = BonusAvailability.None);

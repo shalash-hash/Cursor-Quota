@@ -175,6 +175,45 @@
 
 ---
 
+## 2026-09 — Bonus quota as separate layer with frozen Models base limit
+
+| Field | Value |
+|-------|-------|
+| **Decision** | Bonus — отдельный quota layer с `BonusSource` (Models/API/Unknown). `bonusSpend` ≠ bonus allowance. Base Models limit оценивается до 100% и **замораживается** после; excess = Models bonus used. Unknown bonus total нельзя выдумывать в UI/daily plan. |
+| **Supersedes** | `ModelsEstimatedLimitUsd` рос вместе с spend после 100% |
+| **Reason** | Live Cursor API: bonus после исчерпания base ~$450 — free provider usage (~$10), не увеличение лимита |
+| **Affected docs** | MASTER_CONTEXT § Пулы квоты, HANDOFF |
+| **Affected code** | `QuotaBonusHelper`, `ModelsBaseLimitResolver`, `QuotaUsageEnricher`, `QuotaSnapshotRepository`, `MainViewModel`, `QuotaMonetaryHelper` |
+| **Status** | Active |
+
+---
+
+## 2026-09-04 — Bonus semantics: base fraction vs bonus display; remainingBonus≠exhausted
+
+| Field | Value |
+|-------|-------|
+| **Decision** | Combined card: progress / `$used из $limit` / remaining — только **base** pools ($450+$20). Models bonus — отдельная строка, не в denominator. `remainingBonus=false` → `BonusAvailability.Unknown`, **не** «Бонус исчерпан». Raw `bonusSpend` ≠ `ModelsBonusUsedUsd`. |
+| **Supersedes** | `remainingBonus=false` → Exhausted; `ResolveCombinedDisplay.UsedUsd` включал full models spend |
+| **Reason** | Live diagnostics: bonus spend растёт при `remainingBonus=false`; combined used включал bonus, remaining — нет |
+| **Affected docs** | MASTER_CONTEXT, HANDOFF |
+| **Affected code** | `QuotaBonusHelper`, `QuotaMonetaryHelper`, `MainViewModel`, `BonusAvailability`, strings, tests |
+| **Status** | Active (uncommitted WIP) |
+
+---
+
+## 2026-09-04 — Model C: totalSpend includes API; fix double counting
+
+| Field | Value |
+|-------|-------|
+| **Decision** | Raw `totalSpend` = combined actual period spend (может включать API после spillover). `modelsActualUsed = totalSpend − apiUsed` (или direct `autoSpend`). `combinedActualUsed = totalSpend` — **не** `models + api` повторно. Daily: `combinedToday = ΔtotalSpend`; `modelsToday = ΔtotalSpend − Δapi`. `totalPercentUsed` — диагностика only; bonus allowance **UNKNOWN** (не хардкодить $25). |
+| **Supersedes** | `ModelsUsedUsd = totalSpend`; `combined = models + api` |
+| **Reason** | Snapshot/API diagnostics: API рост всегда двигает `totalSpend`; `modelsBonus` завышался на `apiUsed` |
+| **Affected docs** | MASTER_CONTEXT § Raw totalSpend, HANDOFF |
+| **Affected code** | `QuotaSpendResolver`, `CursorPlanUsageMapper`, `QuotaUsageEnricher`, `QuotaMonetaryHelper`, `QuotaSnapshotRepository`, `UsageHistoryService`, `TrayDisplayFormatter`, tests |
+| **Status** | Active (uncommitted WIP) |
+
+---
+
 ## 2026-09 — AI collaboration bootstrap
 
 | Field | Value |

@@ -36,6 +36,27 @@ internal sealed class PlanUsage
 
     [JsonPropertyName("limit")]
     public long? Limit { get; set; }
+
+    [JsonPropertyName("remainingBonus")]
+    public bool? RemainingBonus { get; set; }
+
+    [JsonPropertyName("bonusTooltip")]
+    public string? BonusTooltip { get; set; }
+
+    [JsonPropertyName("autoSpend")]
+    public long? AutoSpend { get; set; }
+
+    [JsonPropertyName("apiSpend")]
+    public long? ApiSpend { get; set; }
+
+    [JsonPropertyName("autoLimit")]
+    public long? AutoLimit { get; set; }
+
+    [JsonPropertyName("apiLimit")]
+    public long? ApiLimit { get; set; }
+
+    [JsonPropertyName("autoBucketModels")]
+    public bool? AutoBucketModels { get; set; }
 }
 
 internal sealed class PlanInfoResponse

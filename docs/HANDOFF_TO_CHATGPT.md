@@ -29,7 +29,8 @@ At last doc review: **uncommitted** — bootstrap docs + 21-day daily plan refac
 - **Daily plan:** fixed 21-calendar-day Models accelerated phase (`cycleStart` = day 1 → last Phase 1 = `cycleStart + 20`; Reserve from `cycleStart + 21`); reserve tail spreads remaining Models + API until real reset via `CountRemainingDays` (replaces realReset−5 model and old `+1` spread formula).
 - **Auth:** `CursorAuthService` re-reads `state.vscdb` on every refresh.
 - **History UI:** separate stretchable chart cards.
-- **Models card:** `Осталось: $X` in dollars.
+- **Models card:** `Осталось: $X` in dollars; **base quota** vs **bonus** shown separately after 100%.
+- **Bonus quota (Model C):** raw `totalSpend` = combined actual period spend (может включать API после spillover). `modelsActual = totalSpend − apiUsed`; `ModelsBonusUsedUsd = max(0, modelsActual − frozen base)`; **не** `totalSpend − base`. `combinedActual = totalSpend` (не `models + api` повторно). `bonusSpend` raw ≠ Models bonus. Combined card — base-only fraction; `remainingBonus=false` → Unknown.
 - **Ahead/behind:** relative % vs daily plan.
 
 ---
@@ -38,7 +39,7 @@ At last doc review: **uncommitted** — bootstrap docs + 21-day daily plan refac
 
 Full log: [`DECISIONS_CHANGELOG.md`](./DECISIONS_CHANGELOG.md)
 
-Key invariants: combined quota in dollars; billing day from cycle start; **21 calendar days Models phase** (06.09–26.09 for 06.09→06.10 cycle) + variable reserve tail; `PeriodEnd` exclusive at rollover instant; daily plan is recommendation; ahead/behind = relative %; `state.vscdb` auth each refresh; no tokens in logs/DB/settings.
+Key invariants: combined **base** quota in dollars (bonus excluded from main fraction); billing day from cycle start; **21 calendar days Models phase** (06.09–26.09 for 06.09→06.10 cycle) + variable reserve tail; `PeriodEnd` exclusive at rollover instant; daily plan is recommendation (bonus with unknown $ allowance excluded from $ plan); ahead/behind = relative %; `bonusSpend` (raw) ≠ Models bonus used; `remainingBonus=false` ≠ exhausted; `state.vscdb` auth each refresh; no tokens in logs/DB/settings.
 
 ---
 
@@ -46,7 +47,7 @@ Key invariants: combined quota in dollars; billing day from cycle start; **21 ca
 
 - Composition root: `App.xaml.cs` — all services wired manually (no DI container).
 - `MockQuotaUsageProvider` exists for dev/tests; production uses `CursorQuotaUsageProvider`.
-- Tests: `dotnet test Quota.Tests/Quota.Tests.csproj -c Release` (99 tests at last run).
+- Tests: `dotnet test Quota.Tests/Quota.Tests.csproj -c Release` (173 tests at last run).
 - Release exe: `bin/Release/net10.0-windows/Quota.exe`
 - User often requests: run tests → rebuild Release → stop old Quota → start new exe. **Do not commit/push unless explicitly asked.**
 

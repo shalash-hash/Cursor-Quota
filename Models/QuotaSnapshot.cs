@@ -19,4 +19,16 @@ public sealed class QuotaSnapshot
     public long? IncludedSpendCents { get; init; }
 
     public long? LimitCents { get; init; }
+
+    public long? AutoSpendCents { get; init; }
+
+    public long? ApiSpendCents { get; init; }
+
+    public long? BonusSpendCents { get; init; }
+
+    public bool? RemainingBonus { get; init; }
+
+    public long? ModelsBaseLimitCents { get; init; }
+
+    public BonusSource BonusSource { get; init; }
 }

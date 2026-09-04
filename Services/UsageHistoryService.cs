@@ -48,24 +48,17 @@ public sealed class UsageHistoryService
             var dailySpent = AggregateBucketSpent(snapshotsForAggregation, bucketSnapshots);
             var cumulative = ResolveCumulativePercent(bucketSnapshots[^1]);
             var lastSnapshot = bucketSnapshots[^1];
-            var modelsSpendCents = AggregateBucketSpendCents(snapshotsForAggregation, bucketSnapshots);
+            var daySpendUsd = AggregateBucketSpendUsd(snapshotsForAggregation, bucketSnapshots);
             var modelsLimitUsd = ResolveModelsLimitUsd(lastSnapshot);
-            var apiLimitUsd = 20m;
+            var apiLimitUsd = lastSnapshot.LimitCents is long limitCents
+                ? QuotaMonetaryHelper.CentsToUsd(limitCents)
+                : 20m;
 
-            decimal? modelsUsd;
-            if (modelsSpendCents > 0)
-                modelsUsd = QuotaMonetaryHelper.CentsToUsd(modelsSpendCents);
-            else if (modelsLimitUsd is not null && dailySpent.FirstParty > 0)
-                modelsUsd = QuotaMonetaryHelper.PercentToUsd(dailySpent.FirstParty, modelsLimitUsd.Value);
-            else
-                modelsUsd = null;
+            decimal? modelsUsd = daySpendUsd.ModelsUsd > 0m ? daySpendUsd.ModelsUsd : null;
+            decimal? apiUsd = daySpendUsd.ApiUsd > 0m ? daySpendUsd.ApiUsd : null;
+            decimal? totalUsd = daySpendUsd.CombinedUsd > 0m ? daySpendUsd.CombinedUsd : null;
 
-            var apiUsd = dailySpent.Api > 0
-                ? QuotaMonetaryHelper.PercentToUsd(dailySpent.Api, apiLimitUsd)
-                : 0m;
-
-            var totalUsd = (modelsUsd ?? 0m) + apiUsd;
-            if (totalUsd <= 0 && dailySpent.Total > 0 && modelsLimitUsd is not null)
+            if (totalUsd is null && dailySpent.Total > 0 && modelsLimitUsd is not null)
                 totalUsd = QuotaMonetaryHelper.PercentToUsd(dailySpent.Total, modelsLimitUsd.Value);
 
             decimal? cumulativeUsd = lastSnapshot.TotalSpendCents is long cumulativeCents
@@ -167,7 +160,7 @@ public sealed class UsageHistoryService
         return QuotaSnapshotAnalytics.ComputeSummedDayUsage(prior, orderedBucket[^1]);
     }
 
-    private static long AggregateBucketSpendCents(
+    private static DaySpendUsd AggregateBucketSpendUsd(
         IReadOnlyList<QuotaSnapshot> snapshotsForAggregation,
         IReadOnlyList<QuotaSnapshot> bucketSnapshots)
     {
@@ -176,10 +169,10 @@ public sealed class UsageHistoryService
             .ToList();
 
         if (orderedBucket.Count == 0)
-            return 0;
+            return default;
 
         var prior = BuildBucketPriorSnapshots(snapshotsForAggregation, orderedBucket);
-        return QuotaSnapshotAnalytics.ComputeSummedSpendCentsDelta(prior, orderedBucket[^1]);
+        return QuotaSpendResolver.ComputeSummedDaySpendUsd(prior, orderedBucket[^1]);
     }
 
     private static List<QuotaSnapshot> BuildBucketPriorSnapshots(
@@ -228,14 +221,15 @@ public sealed class UsageHistoryService
         {
             FirstPartyUsedPercent = snapshot.FirstPartyPercent,
             ApiUsedPercent = snapshot.ApiPercent,
-            ModelsUsedUsd = snapshot.TotalSpendCents is long totalSpend
-                ? QuotaMonetaryHelper.CentsToUsd(totalSpend)
-                : null,
-            ApiUsedAmountUsd = apiLimit is decimal included
-                ? QuotaMonetaryHelper.PercentToUsd(snapshot.ApiPercent, included)
-                : null,
+            ModelsActualUsedUsd = QuotaSpendResolver.ResolveModelsActualUsedUsdFromSnapshot(snapshot),
+            ModelsUsedUsd = QuotaSpendResolver.ResolveModelsActualUsedUsdFromSnapshot(snapshot),
+            ApiUsedAmountUsd = QuotaSpendResolver.ResolveApiUsedUsdFromSnapshot(snapshot),
             ModelsEstimatedLimitUsd = modelsLimit,
-            ApiIncludedAmountUsd = apiLimit
+            ApiIncludedAmountUsd = apiLimit,
+            ModelsBaseLimitUsd = snapshot.ModelsBaseLimitCents is long baseCents
+                ? QuotaMonetaryHelper.CentsToUsd(baseCents)
+                : modelsLimit,
+            TotalSpendCents = snapshot.TotalSpendCents
         };
 
         return QuotaMonetaryHelper.ResolveCombinedUsedPercent(usage) ?? snapshot.TotalPercent;

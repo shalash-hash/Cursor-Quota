@@ -66,11 +66,11 @@ public static class TrayDisplayFormatter
             localization.Format("TrayMenuApiFormat", apiPercent)
         };
 
-        if (usage.ModelsUsedUsd is not null)
+        if (QuotaSpendResolver.ResolveModelsActualUsedUsd(usage) is decimal modelsActual)
         {
             menuLines.Add(QuotaMonetaryHelper.FormatSpendRange(
-                usage.ModelsUsedUsd.Value,
-                usage.ModelsEstimatedLimitUsd,
+                modelsActual,
+                usage.ModelsBaseLimitUsd ?? usage.ModelsEstimatedLimitUsd,
                 culture));
         }
 

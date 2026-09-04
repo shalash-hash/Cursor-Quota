@@ -69,12 +69,24 @@ App.xaml.cs (composition root)
 
 ### Пулы квоты
 
-- **Models (First Party / Cursor Models)** — основной пул; лимит часто **оценивается** из `total_spend_cents` и процента (`QuotaMonetaryHelper.EstimateLimitUsd`).
-- **API** — отдельный included amount из plan info.
+- **Models (First Party / Cursor Models)** — основной пул; **base limit** оценивается из `total_spend_cents` и `autoPercentUsed` пока &lt; 100%, затем **фиксируется** (`ModelsBaseLimitResolver`, `billing_cycle_state`). **Фактический Models spend** = `max(0, totalSpend − apiUsed)` (или `autoSpend`, если Cursor начнёт отдавать). **Не** путать raw `totalSpend` с Models-only.
+- **API** — отдельный included amount из plan info; `apiUsed = apiPercent × apiLimit`.
+- **Bonus** — отдельный слой сверх base allowance; имеет **source** (`BonusSource`: Models / API / Unknown). `bonusSpend` из API — **накопительный provider-subsidized spend** (`totalSpend − plan includedAmount`), **не** наш `ModelsBonusUsedUsd` и **не** dollar allowance. Фактический Models bonus used = `max(0, modelsActualUsed − modelsBaseLimit)`. `remainingBonus=false` **не** означает «бонус исчерпан» — при растущем bonus spend статус `Unknown`. **Known bonus allowance** остаётся **UNKNOWN** (не выводить из `totalPercentUsed`).
+
+### Raw totalSpend (Model C)
+
+**`totalSpend`** — combined actual period spend Cursor; после spillover может **включать** API-классифицированный расход. **API не прибавляется повторно** к `totalSpend`. Канон: `QuotaSpendResolver`.
+
+- `combinedActualUsed = totalSpend`
+- `modelsActualUsed = totalSpend − apiUsed` (или direct `autoSpend`)
+- `modelsBonusUsed = max(0, modelsActualUsed − modelsBaseLimit)`
+- Daily: `combinedToday = ΔtotalSpend`; `modelsToday = ΔtotalSpend − ΔapiUsed`
+
+`totalPercentUsed` из API — диагностическое поле; **не** использовать для доказанного bonus allowance ($25 — только гипотеза).
 
 ### Combined total
 
-**Общая квота** считается по **сумме долларовых лимитов** пулов (например ~$450 + $20), **не** как max/sum процентов по пулам.
+**Общая карточка** показывает только **основную квоту** (base pools): `combinedBaseUsed = min(models, base) + min(api, apiBase)` из `combinedBaseLimit = modelsBase + apiBase`. Progress bar и `$used из $limit` — **без bonus** в numerator/denominator. Models bonus — отдельная строка (`+ бонус Models: $X`). Фактический total spend (base+bonus+api) может быть выше; не смешивать с основной дробью. USD — канон для daily plan vs fact; проценты combined card — от **base** limits.
 
 ### Billing day
 

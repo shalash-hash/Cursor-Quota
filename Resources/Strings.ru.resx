@@ -36,6 +36,15 @@
   <data name="TotalRemainingFormat" xml:space="preserve">
     <value>Осталось: {0}</value>
   </data>
+  <data name="CombinedBaseRemainingFormat" xml:space="preserve">
+    <value>Осталось основной квоты: {0}</value>
+  </data>
+  <data name="CombinedTodaySpentFormat" xml:space="preserve">
+    <value>Сегодня {0}</value>
+  </data>
+  <data name="CombinedYesterdaySpentFormat" xml:space="preserve">
+    <value>Вчера {0}</value>
+  </data>
   <data name="QuotaResetInFormat" xml:space="preserve">
     <value>До обновления квоты: {0}</value>
   </data>
@@ -140,6 +149,15 @@
   </data>
   <data name="DailyTodayBreakdownBothFormat" xml:space="preserve">
     <value>Модели {0} + API {1}</value>
+  </data>
+  <data name="ModelsBonusUsedFormat" xml:space="preserve">
+    <value>Бонус использовано: {0}</value>
+  </data>
+  <data name="ModelsBonusAvailable" xml:space="preserve">
+    <value>Бонус ещё доступен</value>
+  </data>
+  <data name="CombinedModelsBonusUsedFormat" xml:space="preserve">
+    <value>+ бонус Models: {0} использовано</value>
   </data>
   <data name="DailyTodayBreakdownModelsOnlyFormat" xml:space="preserve">
     <value>Модели {0}</value>

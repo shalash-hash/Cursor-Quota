@@ -36,6 +36,15 @@
   <data name="TotalRemainingFormat" xml:space="preserve">
     <value>Remaining: {0}</value>
   </data>
+  <data name="CombinedBaseRemainingFormat" xml:space="preserve">
+    <value>Base quota remaining: {0}</value>
+  </data>
+  <data name="CombinedTodaySpentFormat" xml:space="preserve">
+    <value>Today {0}</value>
+  </data>
+  <data name="CombinedYesterdaySpentFormat" xml:space="preserve">
+    <value>Yesterday {0}</value>
+  </data>
   <data name="QuotaResetInFormat" xml:space="preserve">
     <value>Quota resets in: {0}</value>
   </data>
@@ -140,6 +149,15 @@
   </data>
   <data name="DailyTodayBreakdownBothFormat" xml:space="preserve">
     <value>Models {0} + API {1}</value>
+  </data>
+  <data name="ModelsBonusUsedFormat" xml:space="preserve">
+    <value>Bonus used: {0}</value>
+  </data>
+  <data name="ModelsBonusAvailable" xml:space="preserve">
+    <value>Bonus still available</value>
+  </data>
+  <data name="CombinedModelsBonusUsedFormat" xml:space="preserve">
+    <value>+ Models bonus: {0} used</value>
   </data>
   <data name="DailyTodayBreakdownModelsOnlyFormat" xml:space="preserve">
     <value>Models {0}</value>

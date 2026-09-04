@@ -55,7 +55,11 @@ public class QuotaSnapshotRepository
                 api_percent,
                 total_spend_cents,
                 included_spend_cents,
-                limit_cents
+                limit_cents,
+                bonus_spend_cents,
+                remaining_bonus,
+                models_base_limit_cents,
+                bonus_source
             ) VALUES (
                 $retrievedAt,
                 $periodStart,
@@ -65,7 +69,11 @@ public class QuotaSnapshotRepository
                 $apiPercent,
                 $totalSpendCents,
                 $includedSpendCents,
-                $limitCents
+                $limitCents,
+                $bonusSpendCents,
+                $remainingBonus,
+                $modelsBaseLimitCents,
+                $bonusSource
             );
             """;
 
@@ -78,8 +86,23 @@ public class QuotaSnapshotRepository
         command.Parameters.AddWithValue("$totalSpendCents", (object?)usage.TotalSpendCents ?? DBNull.Value);
         command.Parameters.AddWithValue("$includedSpendCents", (object?)usage.IncludedSpendCents ?? DBNull.Value);
         command.Parameters.AddWithValue("$limitCents", (object?)usage.LimitCents ?? DBNull.Value);
+        command.Parameters.AddWithValue("$bonusSpendCents", (object?)usage.BonusSpendCents ?? DBNull.Value);
+        command.Parameters.AddWithValue("$remainingBonus", usage.RemainingBonus is bool rb ? rb : DBNull.Value);
+        command.Parameters.AddWithValue("$modelsBaseLimitCents", (object?)usage.ModelsBaseLimitCents ?? DBNull.Value);
+        command.Parameters.AddWithValue("$bonusSource", usage.BonusSource == BonusSource.None ? DBNull.Value : (int)usage.BonusSource);
 
         await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task<QuotaUsage> EnrichWithBonusBaselineAsync(QuotaUsage raw)
+    {
+        await EnsureInitializedAsync();
+
+        var baseLimitCents = await ModelsBaseLimitResolver.ResolveBaseLimitCentsAsync(this, raw);
+        return QuotaUsageEnricher.ApplyBonusBreakdown(
+            raw,
+            baseLimitCents,
+            raw.BonusSource);
     }
 
     public async Task<QuotaUsage> EnrichWithTodayUsageAsync(QuotaUsage current)
@@ -126,28 +149,35 @@ public class QuotaSnapshotRepository
             }
         }
 
-        var todaySpendCents = QuotaSnapshotAnalytics.ComputeSummedSpendCentsDelta(
+        var todaySpend = QuotaSpendResolver.ComputeSummedDaySpendUsd(
             priorSnapshots,
             currentSnapshot);
 
-        var yesterdaySpend = await GetYesterdaySpendCentsAsync(current, yesterdayStart);
+        var yesterdaySpend = await GetYesterdaySpendAsync(current, yesterdayStart);
 
         return CopyUsage(
             current,
             QuotaMonetaryHelper.ResolveCombinedTodayPercentFromParts(
-                todaySpendCents,
+                ToCents(todaySpend.CombinedUsd),
+                ToCents(todaySpend.ModelsUsd),
+                ToCents(todaySpend.ApiUsd),
                 today.FirstParty,
                 today.Api,
                 current.ModelsEstimatedLimitUsd,
                 current.ApiIncludedAmountUsd),
             today.FirstParty,
             today.Api,
-            todaySpendCents,
+            ToCents(todaySpend.CombinedUsd),
+            ToCents(todaySpend.ModelsUsd),
+            ToCents(todaySpend.ApiUsd),
             await GetYesterdayUsageAsync(current, yesterdayStart),
             yesterdaySpend);
     }
 
-    private async Task<long?> GetYesterdaySpendCentsAsync(QuotaUsage current, DateTime yesterdayStart)
+    private static long ToCents(decimal usd) =>
+        (long)Math.Round(usd * 100m, MidpointRounding.AwayFromZero);
+
+    private async Task<DaySpendUsd?> GetYesterdaySpendAsync(QuotaUsage current, DateTime yesterdayStart)
     {
         var snapshots = await GetSnapshotsForDayAsync(
             yesterdayStart,
@@ -158,8 +188,11 @@ public class QuotaSnapshotRepository
             return null;
 
         var prior = snapshots.Take(snapshots.Count - 1).ToList();
-        var delta = QuotaSnapshotAnalytics.ComputeSummedSpendCentsDelta(prior, snapshots[^1]);
-        return delta > 0 ? delta : null;
+        var spend = QuotaSpendResolver.ComputeSummedDaySpendUsd(prior, snapshots[^1]);
+        if (spend.CombinedUsd <= 0m)
+            return null;
+
+        return spend;
     }
 
     public async Task<PoolDaySpent?> GetDaySpentForDateAsync(
@@ -198,7 +231,11 @@ public class QuotaSnapshotRepository
                 api_percent,
                 total_spend_cents,
                 included_spend_cents,
-                limit_cents
+                limit_cents,
+                bonus_spend_cents,
+                remaining_bonus,
+                models_base_limit_cents,
+                bonus_source
             FROM quota_snapshots
             WHERE ($fromInclusive IS NULL OR retrieved_at >= $fromInclusive)
               AND ($toExclusive IS NULL OR retrieved_at < $toExclusive)
@@ -217,21 +254,135 @@ public class QuotaSnapshotRepository
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            snapshots.Add(new QuotaSnapshot
-            {
-                RetrievedAt = DateTime.Parse(reader.GetString(0), null, DateTimeStyles.RoundtripKind),
-                PeriodStart = DateTime.Parse(reader.GetString(1), null, DateTimeStyles.RoundtripKind),
-                PeriodEnd = DateTime.Parse(reader.GetString(2), null, DateTimeStyles.RoundtripKind),
-                TotalPercent = reader.GetDouble(3),
-                FirstPartyPercent = reader.GetDouble(4),
-                ApiPercent = reader.GetDouble(5),
-                TotalSpendCents = reader.IsDBNull(6) ? null : reader.GetInt64(6),
-                IncludedSpendCents = reader.IsDBNull(7) ? null : reader.GetInt64(7),
-                LimitCents = reader.IsDBNull(8) ? null : reader.GetInt64(8)
-            });
+            snapshots.Add(ReadQuotaSnapshot(reader));
         }
 
         return snapshots;
+    }
+
+    public async Task<long?> GetFrozenModelsBaseLimitCentsAsync(DateTime periodStart, DateTime periodEnd)
+    {
+        await EnsureInitializedAsync();
+
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT frozen_models_base_limit_cents
+            FROM billing_cycle_state
+            WHERE period_start = $periodStart
+              AND period_end = $periodEnd
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$periodStart", FormatPeriodParameter(periodStart));
+        command.Parameters.AddWithValue("$periodEnd", FormatPeriodParameter(periodEnd));
+
+        var result = await command.ExecuteScalarAsync();
+        return result is long value && value > 0 ? value : null;
+    }
+
+    public async Task UpsertFrozenModelsBaseLimitCentsAsync(
+        DateTime periodStart,
+        DateTime periodEnd,
+        long frozenModelsBaseLimitCents)
+    {
+        await EnsureInitializedAsync();
+
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO billing_cycle_state (
+                period_start,
+                period_end,
+                frozen_models_base_limit_cents,
+                updated_at
+            ) VALUES (
+                $periodStart,
+                $periodEnd,
+                $frozenLimit,
+                $updatedAt
+            )
+            ON CONFLICT(period_start, period_end) DO UPDATE SET
+                frozen_models_base_limit_cents = $frozenLimit,
+                updated_at = $updatedAt;
+            """;
+        command.Parameters.AddWithValue("$periodStart", FormatPeriodParameter(periodStart));
+        command.Parameters.AddWithValue("$periodEnd", FormatPeriodParameter(periodEnd));
+        command.Parameters.AddWithValue("$frozenLimit", frozenModelsBaseLimitCents);
+        command.Parameters.AddWithValue("$updatedAt", DateTimeOffset.Now.ToString("O"));
+        await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task<long?> RecoverModelsBaseLimitCentsFromHistoryAsync(
+        DateTime periodStart,
+        DateTime periodEnd)
+    {
+        await EnsureInitializedAsync();
+
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT total_spend_cents, first_party_percent, models_base_limit_cents
+            FROM quota_snapshots
+            WHERE period_start = $periodStart
+              AND period_end = $periodEnd
+              AND first_party_percent < 99.999
+              AND total_spend_cents > 0
+            ORDER BY retrieved_at DESC
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$periodStart", FormatPeriodParameter(periodStart));
+        command.Parameters.AddWithValue("$periodEnd", FormatPeriodParameter(periodEnd));
+
+        await using var reader = await command.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
+        {
+            if (!reader.IsDBNull(2))
+            {
+                var stored = reader.GetInt64(2);
+                if (stored > 0)
+                    return stored;
+            }
+
+            if (!reader.IsDBNull(0) && !reader.IsDBNull(1))
+            {
+                var spend = reader.GetInt64(0);
+                var percent = reader.GetDouble(1);
+                return QuotaMonetaryHelper.EstimateLimitCents(spend, percent);
+            }
+        }
+
+        return null;
+    }
+
+    public async Task<long?> GetFirstModels100SpendCentsAsync(DateTime periodStart, DateTime periodEnd)
+    {
+        await EnsureInitializedAsync();
+
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT total_spend_cents
+            FROM quota_snapshots
+            WHERE period_start = $periodStart
+              AND period_end = $periodEnd
+              AND first_party_percent >= 99.999
+              AND total_spend_cents > 0
+            ORDER BY retrieved_at ASC
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$periodStart", FormatPeriodParameter(periodStart));
+        command.Parameters.AddWithValue("$periodEnd", FormatPeriodParameter(periodEnd));
+
+        var result = await command.ExecuteScalarAsync();
+        return result is long value && value > 0 ? value : null;
     }
 
     private async Task<PoolDaySpent?> GetYesterdayUsageAsync(QuotaUsage current, DateTime yesterdayStart)
@@ -247,9 +398,11 @@ public class QuotaSnapshotRepository
         double todayTotal,
         double todayFirstParty,
         double todayApi,
+        long todayTotalSpendCents,
         long todayModelsSpendCents,
+        long todayApiSpendCents,
         PoolDaySpent? yesterday,
-        long? yesterdayModelsSpendCents)
+        DaySpendUsd? yesterdaySpend)
     {
         var yesterdayTotal = yesterday is PoolDaySpent spent
             ? QuotaMonetaryHelper.ResolveCombinedDayPercent(
@@ -281,14 +434,61 @@ public class QuotaSnapshotRepository
             TotalSpendCents = source.TotalSpendCents,
             IncludedSpendCents = source.IncludedSpendCents,
             LimitCents = source.LimitCents,
+            AutoSpendCents = source.AutoSpendCents,
+            ApiSpendCents = source.ApiSpendCents,
+            AutoLimitCents = source.AutoLimitCents,
+            ApiLimitCents = source.ApiLimitCents,
+            ModelsActualUsedUsd = source.ModelsActualUsedUsd,
             ModelsUsedUsd = source.ModelsUsedUsd,
             ModelsEstimatedLimitUsd = source.ModelsEstimatedLimitUsd,
             ModelsEstimatedRemainingUsd = source.ModelsEstimatedRemainingUsd,
+            TodayTotalSpendCents = todayTotalSpendCents > 0 ? todayTotalSpendCents : null,
             TodayModelsSpendCents = todayModelsSpendCents > 0 ? todayModelsSpendCents : null,
-            YesterdayModelsSpendCents = yesterdayModelsSpendCents,
-            HasYesterdaySpendData = yesterdayModelsSpendCents is not null
+            TodayApiSpendCents = todayApiSpendCents > 0 ? todayApiSpendCents : null,
+            YesterdayTotalSpendCents = yesterdaySpend is { CombinedUsd: > 0 } yTotal
+                ? ToCents(yTotal.CombinedUsd)
+                : null,
+            YesterdayModelsSpendCents = yesterdaySpend is { ModelsUsd: > 0 } yModels
+                ? ToCents(yModels.ModelsUsd)
+                : null,
+            YesterdayApiSpendCents = yesterdaySpend is { ApiUsd: > 0 } yApi
+                ? ToCents(yApi.ApiUsd)
+                : null,
+            HasYesterdaySpendData = yesterdaySpend is not null,
+            BonusSpendCents = source.BonusSpendCents,
+            RemainingBonus = source.RemainingBonus,
+            BonusTooltip = source.BonusTooltip,
+            BonusSource = source.BonusSource,
+            BonusAvailability = source.BonusAvailability,
+            ModelsBaseLimitUsd = source.ModelsBaseLimitUsd,
+            ModelsBonusUsedUsd = source.ModelsBonusUsedUsd,
+            ModelsBaseLimitCents = source.ModelsBaseLimitCents,
+            ApiBonusSource = source.ApiBonusSource,
+            ApiBonusUsedUsd = source.ApiBonusUsedUsd,
+            ApiKnownBonusAllowanceUsd = source.ApiKnownBonusAllowanceUsd,
+            RawTotalPercentUsed = source.RawTotalPercentUsed
         };
     }
+
+    private static QuotaSnapshot ReadQuotaSnapshot(SqliteDataReader reader) =>
+        new()
+        {
+            RetrievedAt = DateTime.Parse(reader.GetString(0), null, DateTimeStyles.RoundtripKind),
+            PeriodStart = DateTime.Parse(reader.GetString(1), null, DateTimeStyles.RoundtripKind),
+            PeriodEnd = DateTime.Parse(reader.GetString(2), null, DateTimeStyles.RoundtripKind),
+            TotalPercent = reader.GetDouble(3),
+            FirstPartyPercent = reader.GetDouble(4),
+            ApiPercent = reader.GetDouble(5),
+            TotalSpendCents = reader.IsDBNull(6) ? null : reader.GetInt64(6),
+            IncludedSpendCents = reader.IsDBNull(7) ? null : reader.GetInt64(7),
+            LimitCents = reader.IsDBNull(8) ? null : reader.GetInt64(8),
+            BonusSpendCents = reader.FieldCount > 9 && !reader.IsDBNull(9) ? reader.GetInt64(9) : null,
+            RemainingBonus = reader.FieldCount > 10 && !reader.IsDBNull(10) ? reader.GetBoolean(10) : null,
+            ModelsBaseLimitCents = reader.FieldCount > 11 && !reader.IsDBNull(11) ? reader.GetInt64(11) : null,
+            BonusSource = reader.FieldCount > 12 && !reader.IsDBNull(12)
+                ? (BonusSource)reader.GetInt32(12)
+                : BonusSource.None
+        };
 
     private static SnapshotRecord ToSnapshotRecord(QuotaUsage usage) =>
         new(
@@ -364,7 +564,11 @@ public class QuotaSnapshotRepository
                 api_percent,
                 total_spend_cents,
                 included_spend_cents,
-                limit_cents
+                limit_cents,
+                bonus_spend_cents,
+                remaining_bonus,
+                models_base_limit_cents,
+                bonus_source
             FROM quota_snapshots
             WHERE retrieved_at < $dayStart
               AND period_start = $periodStart
@@ -381,18 +585,7 @@ public class QuotaSnapshotRepository
         if (!await reader.ReadAsync())
             return null;
 
-        return new QuotaSnapshot
-        {
-            RetrievedAt = DateTime.Parse(reader.GetString(0), null, DateTimeStyles.RoundtripKind),
-            PeriodStart = DateTime.Parse(reader.GetString(1), null, DateTimeStyles.RoundtripKind),
-            PeriodEnd = DateTime.Parse(reader.GetString(2), null, DateTimeStyles.RoundtripKind),
-            TotalPercent = reader.GetDouble(3),
-            FirstPartyPercent = reader.GetDouble(4),
-            ApiPercent = reader.GetDouble(5),
-            TotalSpendCents = reader.IsDBNull(6) ? null : reader.GetInt64(6),
-            IncludedSpendCents = reader.IsDBNull(7) ? null : reader.GetInt64(7),
-            LimitCents = reader.IsDBNull(8) ? null : reader.GetInt64(8)
-        };
+        return ReadQuotaSnapshot(reader);
     }
 
     private async Task<SnapshotRecord?> GetLastSnapshotOfDayAsync(
@@ -594,6 +787,22 @@ public class QuotaSnapshotRepository
         await EnsureColumnAsync(connection, "total_spend_cents", "INTEGER");
         await EnsureColumnAsync(connection, "included_spend_cents", "INTEGER");
         await EnsureColumnAsync(connection, "limit_cents", "INTEGER");
+        await EnsureColumnAsync(connection, "bonus_spend_cents", "INTEGER");
+        await EnsureColumnAsync(connection, "remaining_bonus", "INTEGER");
+        await EnsureColumnAsync(connection, "models_base_limit_cents", "INTEGER");
+        await EnsureColumnAsync(connection, "bonus_source", "INTEGER");
+
+        await using var cycleCommand = connection.CreateCommand();
+        cycleCommand.CommandText = """
+            CREATE TABLE IF NOT EXISTS billing_cycle_state (
+                period_start TEXT NOT NULL,
+                period_end TEXT NOT NULL,
+                frozen_models_base_limit_cents INTEGER,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (period_start, period_end)
+            );
+            """;
+        await cycleCommand.ExecuteNonQueryAsync();
 
         _initialized = true;
     }

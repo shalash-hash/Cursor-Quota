@@ -64,6 +64,8 @@ public class MainViewModel : ViewModelBase, IDisposable
     private string _firstPartyUsedPercentText = "—";
     private string _firstPartySpendText = string.Empty;
     private string _firstPartyRemainingText = string.Empty;
+    private string _firstPartyBonusText = string.Empty;
+    private string _firstPartyBonusStatusText = string.Empty;
     private double _firstPartyProgressValue;
     private string _firstPartyPaceText = "—";
     private string _firstPartyTodaySpentText = "—";
@@ -79,6 +81,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     private string _paceStatusText = string.Empty;
     private string _todayPoolsDetailText = string.Empty;
     private string _totalPoolsDetailText = string.Empty;
+    private string _totalBonusDetailText = string.Empty;
 
     private string? _errorMessage;
     private string? _errorMessageKey;
@@ -399,6 +402,18 @@ public class MainViewModel : ViewModelBase, IDisposable
         private set => SetProperty(ref _firstPartyRemainingText, value);
     }
 
+    public string FirstPartyBonusText
+    {
+        get => _firstPartyBonusText;
+        private set => SetProperty(ref _firstPartyBonusText, value);
+    }
+
+    public string FirstPartyBonusStatusText
+    {
+        get => _firstPartyBonusStatusText;
+        private set => SetProperty(ref _firstPartyBonusStatusText, value);
+    }
+
     public double FirstPartyProgressValue
     {
         get => _firstPartyProgressValue;
@@ -477,6 +492,12 @@ public class MainViewModel : ViewModelBase, IDisposable
         private set => SetProperty(ref _totalPoolsDetailText, value);
     }
 
+    public string TotalBonusDetailText
+    {
+        get => _totalBonusDetailText;
+        private set => SetProperty(ref _totalBonusDetailText, value);
+    }
+
     public string? ErrorMessage
     {
         get => _errorMessage;
@@ -547,7 +568,8 @@ public class MainViewModel : ViewModelBase, IDisposable
         try
         {
             var snapshot = await _quotaUsageProvider.GetUsageAsync().ConfigureAwait(false);
-            var usage = await _snapshotRepository.EnrichWithTodayUsageAsync(snapshot).ConfigureAwait(false);
+            var withBonus = await _snapshotRepository.EnrichWithBonusBaselineAsync(snapshot).ConfigureAwait(false);
+            var usage = await _snapshotRepository.EnrichWithTodayUsageAsync(withBonus).ConfigureAwait(false);
             var successTime = DateTimeOffset.Now;
 
             RunOnUi(() =>
@@ -667,8 +689,10 @@ public class MainViewModel : ViewModelBase, IDisposable
             TotalSpendText = "—";
         }
 
+        TotalBonusDetailText = BuildTotalBonusDetailText(usage, combined, culture);
+
         TotalRemainingText = _localizationService.Format(
-            "TotalRemainingFormat",
+            "CombinedBaseRemainingFormat",
             FormatPercentWithUsd(
                 combined.RemainingPercent,
                 combined.LimitUsd,
@@ -763,13 +787,24 @@ public class MainViewModel : ViewModelBase, IDisposable
             _ => string.Empty
         };
 
-        FirstPartyUsedPercentText = PercentageFormatter.Format(usage.FirstPartyUsedPercent, digits, culture);
-        FirstPartyProgressValue = Math.Max(0, usage.FirstPartyUsedPercent);
+        FirstPartyUsedPercentText = PercentageFormatter.Format(
+            Math.Min(100, usage.FirstPartyUsedPercent),
+            digits,
+            culture);
+        FirstPartyProgressValue = Math.Min(100, Math.Max(0, usage.FirstPartyUsedPercent));
 
-        if (usage.ModelsUsedUsd is not null)
+        var modelsBreakdown = QuotaBonusHelper.ResolveModelsBreakdown(usage);
+        if (modelsBreakdown.BaseLimitUsd is decimal modelsBaseLimit)
         {
             FirstPartySpendText = QuotaMonetaryHelper.FormatSpendRange(
-                usage.ModelsUsedUsd.Value,
+                modelsBreakdown.BaseUsedUsd,
+                modelsBaseLimit,
+                culture);
+        }
+        else if (QuotaSpendResolver.ResolveModelsActualUsedUsd(usage) is decimal modelsActual)
+        {
+            FirstPartySpendText = QuotaMonetaryHelper.FormatSpendRange(
+                modelsActual,
                 usage.ModelsEstimatedLimitUsd,
                 culture);
         }
@@ -777,6 +812,23 @@ public class MainViewModel : ViewModelBase, IDisposable
         {
             FirstPartySpendText = string.Empty;
         }
+
+        if (modelsBreakdown.BonusUsedUsd > 0m)
+        {
+            FirstPartyBonusText = _localizationService.Format(
+                "ModelsBonusUsedFormat",
+                QuotaMonetaryHelper.FormatUsd(modelsBreakdown.BonusUsedUsd, culture));
+        }
+        else
+        {
+            FirstPartyBonusText = string.Empty;
+        }
+
+        FirstPartyBonusStatusText = modelsBreakdown.BonusAvailability switch
+        {
+            BonusAvailability.Available => _localizationService["ModelsBonusAvailable"],
+            _ => string.Empty
+        };
 
         var modelsRemainingUsd = QuotaMonetaryHelper.ResolveModelsRemainingUsd(usage);
         if (modelsRemainingUsd is not null)
@@ -846,6 +898,22 @@ public class MainViewModel : ViewModelBase, IDisposable
         return $"{percentPart} · {amountPart}";
     }
 
+    private string BuildTotalBonusDetailText(
+        QuotaUsage usage,
+        CombinedQuotaDisplay combined,
+        CultureInfo culture)
+    {
+        if (combined.ModelsBonusUsedUsd is not decimal bonusUsed || bonusUsed <= 0m)
+            return string.Empty;
+
+        if (usage.BonusSource != BonusSource.Models)
+            return string.Empty;
+
+        return _localizationService.Format(
+            "CombinedModelsBonusUsedFormat",
+            QuotaMonetaryHelper.FormatUsd(bonusUsed, culture));
+    }
+
     private string BuildTotalPoolsDetailText(QuotaUsage usage, int digits, CultureInfo culture)
     {
         var modelsPercent = PercentageFormatter.Format(usage.FirstPartyUsedPercent, digits, culture);
@@ -901,33 +969,35 @@ public class MainViewModel : ViewModelBase, IDisposable
 
     private void ApplyDailySpentTexts(QuotaUsage usage, CultureInfo culture)
     {
-        var combinedTodayPercent = QuotaMonetaryHelper.ResolveCombinedTodayPercentOrFallback(usage);
         var combinedTodayUsd = QuotaMonetaryHelper.ResolveTodayUsageUsd(usage);
+        var combinedTodayPercent = QuotaMonetaryHelper.ResolveCombinedTodayPercentOrFallback(usage);
 
-        TotalTodaySpentText = FormatDailySpentToday(combinedTodayPercent, combinedTodayUsd);
-        TotalYesterdaySpentText = FormatDailySpentYesterday(
+        TotalTodaySpentText = FormatCombinedCardDailySpent(
+            combinedTodayUsd,
+            isYesterday: false,
+            culture);
+        TotalYesterdaySpentText = FormatCombinedCardDailySpent(
+            ComputeYesterdayTotalSpendUsd(usage),
+            isYesterday: true,
+            culture,
+            hasData: usage.HasYesterdayUsageData);
+
+        DailyTodaySpentText = FormatDailySpentToday(combinedTodayPercent, combinedTodayUsd);
+
+        DailyTodayBreakdownText = BuildDailyTodayBreakdownText(usage, culture);
+        DailyYesterdaySpentText = FormatDailySpentYesterday(
             usage.YesterdayTotalUsedPercent,
             ComputeYesterdayTotalSpendUsd(usage),
             usage.HasYesterdayUsageData);
-
-        DailyTodaySpentText = TotalTodaySpentText;
-        DailyTodayBreakdownText = BuildDailyTodayBreakdownText(usage, culture);
-        DailyYesterdaySpentText = TotalYesterdaySpentText;
 
         var modelsYesterdayPercent = ResolveModelsYesterdayPercent(usage);
 
         FirstPartyTodaySpentText = FormatDailySpentToday(
             usage.TodayFirstPartyUsedPercent,
-            QuotaMonetaryHelper.ResolveDaySpendUsd(
-                usage.TodayModelsSpendCents,
-                usage.TodayFirstPartyUsedPercent,
-                usage.ModelsEstimatedLimitUsd));
+            QuotaMonetaryHelper.ResolveModelsTodayUsd(usage));
         FirstPartyYesterdaySpentText = FormatDailySpentYesterday(
             modelsYesterdayPercent,
-            QuotaMonetaryHelper.ResolveDaySpendUsd(
-                usage.YesterdayModelsSpendCents,
-                modelsYesterdayPercent,
-                usage.ModelsEstimatedLimitUsd),
+            QuotaSpendResolver.ResolveModelsYesterdayUsd(usage),
             usage.HasYesterdayUsageData);
 
         ApiTodaySpentText = FormatDailySpentToday(
@@ -972,22 +1042,8 @@ public class MainViewModel : ViewModelBase, IDisposable
     private decimal? ComputeTodayTotalSpendUsd(QuotaUsage usage) =>
         QuotaMonetaryHelper.ResolveTodayUsageUsd(usage);
 
-    private decimal? ComputeYesterdayTotalSpendUsd(QuotaUsage usage)
-    {
-        var models = QuotaMonetaryHelper.ResolveDaySpendUsd(
-            usage.YesterdayModelsSpendCents,
-            ResolveModelsYesterdayPercent(usage),
-            usage.ModelsEstimatedLimitUsd);
-
-        decimal? api = null;
-        if (usage.YesterdayApiUsedPercent > 0.001)
-            api = ApiPercentToUsd(usage.YesterdayApiUsedPercent, usage.ApiIncludedAmountUsd);
-
-        if (models is null && api is null)
-            return null;
-
-        return (models ?? 0m) + (api ?? 0m);
-    }
+    private decimal? ComputeYesterdayTotalSpendUsd(QuotaUsage usage) =>
+        QuotaSpendResolver.ResolveCombinedYesterdayUsd(usage);
 
     private static double ResolveModelsYesterdayPercent(QuotaUsage usage)
     {
@@ -1005,6 +1061,28 @@ public class MainViewModel : ViewModelBase, IDisposable
 
     private static decimal? ApiPercentToUsd(double percent, decimal? includedUsd) =>
         includedUsd is null ? null : QuotaMonetaryHelper.PercentToUsd(percent, includedUsd.Value);
+
+    private string FormatCombinedCardDailySpent(
+        decimal? amountUsd,
+        bool isYesterday,
+        CultureInfo culture,
+        bool hasData = true)
+    {
+        if (isYesterday && !hasData)
+            return _localizationService.Format("CombinedYesterdaySpentFormat", "—");
+
+        if (amountUsd is not null && amountUsd > 0m)
+        {
+            var formatted = QuotaMonetaryHelper.FormatUsd(amountUsd.Value, culture);
+            return _localizationService.Format(
+                isYesterday ? "CombinedYesterdaySpentFormat" : "CombinedTodaySpentFormat",
+                formatted);
+        }
+
+        return _localizationService.Format(
+            isYesterday ? "CombinedYesterdaySpentFormat" : "CombinedTodaySpentFormat",
+            "—");
+    }
 
     private string FormatDailySpentToday(double percent, decimal? amountUsd)
     {
@@ -1152,6 +1230,8 @@ public class MainViewModel : ViewModelBase, IDisposable
         FirstPartyUsedPercentText = dash;
         FirstPartySpendText = string.Empty;
         FirstPartyRemainingText = string.Empty;
+        FirstPartyBonusText = string.Empty;
+        FirstPartyBonusStatusText = string.Empty;
         FirstPartyPaceText = _localizationService.Format("PaceFormat", dashPercent);
         FirstPartyTodaySpentText = _localizationService.Format("DailySpentTodayFormat", dash);
         FirstPartyYesterdaySpentText = _localizationService.Format("DailySpentYesterdayFormat", dash);
@@ -1163,6 +1243,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         PaceStatusText = string.Empty;
         TodayPoolsDetailText = string.Empty;
         TotalPoolsDetailText = string.Empty;
+        TotalBonusDetailText = string.Empty;
         UpdateLastUpdateText();
         SetRefreshingState(IsRefreshing);
         RebuildErrorMessage();

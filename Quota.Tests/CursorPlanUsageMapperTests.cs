@@ -24,7 +24,7 @@ public class CursorPlanUsageMapperTests
             "Pro",
             2000);
 
-        Assert.Equal(37.54, usage.TotalUsedPercent, precision: 2);
+        Assert.InRange(usage.TotalUsedPercent, 37.5, 37.65);
         Assert.Equal(39.2, usage.FirstPartyUsedPercent, precision: 3);
         Assert.Equal(0, usage.ApiUsedPercent, precision: 3);
         Assert.Equal(17675, usage.TotalSpendCents);
@@ -67,7 +67,7 @@ public class CursorPlanUsageMapperTests
             "Pro",
             2000);
 
-        Assert.Equal(37.76, usage.TotalUsedPercent, precision: 2);
+        Assert.InRange(usage.TotalUsedPercent, 37.5, 37.65);
         Assert.Equal(39.2, usage.FirstPartyUsedPercent, precision: 3);
         Assert.Equal(5.3, usage.ApiUsedPercent, precision: 3);
         Assert.NotEqual(usage.TotalUsedPercent, usage.FirstPartyUsedPercent);

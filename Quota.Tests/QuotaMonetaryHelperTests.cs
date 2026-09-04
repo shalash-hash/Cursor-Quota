@@ -88,23 +88,37 @@ public class QuotaMonetaryHelperTests
     }
 
     [Fact]
-    public void ResolveCombinedDayPercent_UsesCombinedLimit()
-    {
-        var percent = QuotaMonetaryHelper.ResolveCombinedDayPercent(
-            5.96,
-            0,
-            450m,
-            20m);
-
-        Assert.Equal(5.71, percent, precision: 2);
-    }
-
-    [Fact]
-    public void ResolveTodayUsageUsd_SumsModelsAndApi()
+    public void ResolveCombinedDisplay_ActualTotalSpend_IsRawPeriodSpend()
     {
         var usage = new QuotaUsage
         {
+            FirstPartyUsedPercent = 100,
+            ApiUsedPercent = 29.6,
+            TotalSpendCents = 46927,
+            ModelsActualUsedUsd = 463.35m,
+            ModelsUsedUsd = 463.35m,
+            ModelsBaseLimitUsd = 450m,
+            ModelsBonusUsedUsd = 13.35m,
+            ApiIncludedAmountUsd = 20m,
+            ApiUsedAmountUsd = 5.92m,
+        };
+
+        var combined = QuotaMonetaryHelper.ResolveCombinedDisplay(usage);
+        var actualTotal = QuotaMonetaryHelper.ResolveCombinedUsedUsd(usage);
+
+        Assert.Equal(469.27m, actualTotal);
+        Assert.Equal(455.92m, combined.UsedUsd);
+        Assert.NotEqual(475.19m, actualTotal);
+    }
+
+    [Fact]
+    public void ResolveTodayUsageUsd_UsesTotalDelta_NotSum()
+    {
+        var usage = new QuotaUsage
+        {
+            TodayTotalSpendCents = 204,
             TodayModelsSpendCents = 141,
+            TodayApiSpendCents = 63,
             TodayApiUsedPercent = 3.15,
             ApiIncludedAmountUsd = 20m,
         };
@@ -113,6 +127,7 @@ public class QuotaMonetaryHelperTests
 
         Assert.NotNull(total);
         Assert.Equal(2.04m, total.Value, precision: 2);
+        Assert.NotEqual(2.67m, total);
     }
 
     [Fact]
@@ -132,15 +147,15 @@ public class QuotaMonetaryHelperTests
     }
 
     [Fact]
-    public void ResolveTodayUsageUsd_LiveScenario_SumsModelsAndApi()
+    public void ResolveTodayUsageUsd_LiveScenario_DecomposesWithoutDoubleCount()
     {
         var usage = CreateLiveTodayUsage();
 
         var total = QuotaMonetaryHelper.ResolveTodayUsageUsd(usage);
-
         Assert.Equal(3.55m, total);
         Assert.Equal(2.46m, QuotaMonetaryHelper.ResolveModelsTodayUsd(usage));
         Assert.Equal(1.09m, QuotaMonetaryHelper.ResolveApiTodayUsd(usage));
+        Assert.NotEqual(4.64m, total);
     }
 
     [Fact]
@@ -168,32 +183,34 @@ public class QuotaMonetaryHelperTests
     }
 
     [Fact]
-    public void ResolveCombinedTodayPercentFromParts_ModelsExhausted_KeepsModelsUsdInTotal()
+    public void ResolveCombinedTodayPercentFromParts_ModelsExhausted_KeepsTotalDelta()
     {
+        const long totalCents = 309;
         const long modelsCents = 200;
+        const long apiCents = 109;
         const double apiPercent = 5.45;
         const decimal modelsLimit = 450m;
         const decimal apiLimit = 20m;
 
         var percent = QuotaMonetaryHelper.ResolveCombinedTodayPercentFromParts(
+            totalCents,
             modelsCents,
+            apiCents,
             0,
             apiPercent,
             modelsLimit,
             apiLimit);
 
-        var todayUsd = QuotaMonetaryHelper.CentsToUsd(modelsCents)
-            + QuotaMonetaryHelper.PercentToUsd(apiPercent, apiLimit);
-
-        Assert.Equal(3.09m, todayUsd);
+        Assert.Equal(3.09m, QuotaMonetaryHelper.CentsToUsd(totalCents));
         Assert.InRange(percent, 0.64, 0.66);
     }
 
     [Fact]
-    public void ResolveCombinedTodayPercent_ModelsOnly_EqualsModelsShare()
+    public void ResolveCombinedTodayPercent_ModelsOnly_EqualsTotalDeltaShare()
     {
         var usage = new QuotaUsage
         {
+            TodayTotalSpendCents = 355,
             TodayModelsSpendCents = 355,
             TodayFirstPartyUsedPercent = 0.79,
             ModelsEstimatedLimitUsd = 450m,
@@ -208,10 +225,12 @@ public class QuotaMonetaryHelperTests
     }
 
     [Fact]
-    public void ResolveCombinedTodayPercent_ApiOnly_EqualsApiShareOfCombinedLimit()
+    public void ResolveCombinedTodayPercent_ApiOnly_EqualsTotalDeltaShare()
     {
         var usage = new QuotaUsage
         {
+            TodayTotalSpendCents = 109,
+            TodayApiSpendCents = 109,
             TodayApiUsedPercent = 5.45,
             ApiIncludedAmountUsd = 20m,
             ModelsEstimatedLimitUsd = 450m,
@@ -263,7 +282,9 @@ public class QuotaMonetaryHelperTests
 
     private static QuotaUsage CreateLiveTodayUsage(decimal modelsLimitUsd = 450m) => new()
     {
+        TodayTotalSpendCents = 355,
         TodayModelsSpendCents = 246,
+        TodayApiSpendCents = 109,
         TodayFirstPartyUsedPercent = 0.55,
         TodayApiUsedPercent = 5.45,
         TodayTotalUsedPercent = 6.78,

@@ -200,7 +200,9 @@ public class QuotaCalculatorCombinedDailyTargetTests
             TodayTotalUsedPercent = 3.88,
             TodayFirstPartyUsedPercent = 0.31,
             TodayApiUsedPercent = 3.15,
-            TodayModelsSpendCents = (long)(modelsTodayUsd * 100),
+            TodayTotalSpendCents = 204,
+            TodayModelsSpendCents = 141,
+            TodayApiSpendCents = 63,
             ModelsUsedUsd = modelsUsedUsd,
             ModelsEstimatedLimitUsd = modelsLimit,
             ApiIncludedAmountUsd = apiLimit,
@@ -330,7 +332,9 @@ public class QuotaCalculatorCombinedDailyTargetTests
         TodayTotalUsedPercent = 3.88,
         TodayFirstPartyUsedPercent = 0.31,
         TodayApiUsedPercent = 3.15,
+        TodayTotalSpendCents = 204,
         TodayModelsSpendCents = 141,
+        TodayApiSpendCents = 63,
         ModelsUsedUsd = 449.70m,
         ModelsEstimatedLimitUsd = 450m,
         ApiIncludedAmountUsd = 20m,
@@ -342,22 +346,30 @@ public class QuotaCalculatorCombinedDailyTargetTests
     private static QuotaUsage CreateReservePhaseUsage(
         decimal todayModelsUsd,
         double todayApiPercent,
-        double todayTotalPercent) => new()
+        double todayTotalPercent)
     {
-        TotalUsedPercent = 95,
-        FirstPartyUsedPercent = 99.9,
-        ApiUsedPercent = 3,
-        TodayTotalUsedPercent = todayTotalPercent,
-        TodayFirstPartyUsedPercent = 0.31,
-        TodayApiUsedPercent = todayApiPercent,
-        TodayModelsSpendCents = (long)(todayModelsUsd * 100),
-        ModelsUsedUsd = 449.70m,
-        ModelsEstimatedLimitUsd = 450m,
-        ApiIncludedAmountUsd = 20m,
-        ApiUsedAmountUsd = 0.60m,
-        PeriodStart = CycleStart,
-        PeriodEnd = ResetDate
-    };
+        var apiUsd = QuotaMonetaryHelper.PercentToUsd(todayApiPercent, 20m);
+        var totalUsd = todayModelsUsd + apiUsd;
+
+        return new QuotaUsage
+        {
+            TotalUsedPercent = 95,
+            FirstPartyUsedPercent = 99.9,
+            ApiUsedPercent = 3,
+            TodayTotalUsedPercent = todayTotalPercent,
+            TodayFirstPartyUsedPercent = 0.31,
+            TodayApiUsedPercent = todayApiPercent,
+            TodayTotalSpendCents = (long)Math.Round(totalUsd * 100m),
+            TodayModelsSpendCents = todayModelsUsd > 0m ? (long)Math.Round(todayModelsUsd * 100m) : null,
+            TodayApiSpendCents = apiUsd > 0m ? (long)Math.Round(apiUsd * 100m) : null,
+            ModelsUsedUsd = 449.70m,
+            ModelsEstimatedLimitUsd = 450m,
+            ApiIncludedAmountUsd = 20m,
+            ApiUsedAmountUsd = 0.60m,
+            PeriodStart = CycleStart,
+            PeriodEnd = ResetDate
+        };
+    }
 
     private static QuotaUsage CreateReservePhaseUsageForExactPlan()
     {
