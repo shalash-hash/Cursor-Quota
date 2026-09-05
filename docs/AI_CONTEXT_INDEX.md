@@ -31,7 +31,10 @@
 | **Overview (human)** | `README.md` | — |
 | **WPF UI / layout** | `MASTER_CONTEXT.md` § UI | `MainWindow.xaml`, `App.xaml`, `Controls/**` |
 | **ViewModel / presentation** | `MASTER_CONTEXT.md` § Architecture | `ViewModels/MainViewModel.cs` |
-| **Quota fetch & Cursor API** | `MASTER_CONTEXT.md` § Data sources | `Services/CursorQuotaUsageProvider.cs`, `Services/CursorApi/**`, `Services/CursorPlanUsageMapper.cs` |
+| **Quota fetch & Cursor API** | `MASTER_CONTEXT.md` § Data sources, § Reset countdown | `Services/CursorQuotaUsageProvider.cs`, `Services/CursorApi/**`, `Services/CursorPlanUsageMapper.cs`, `Helpers/BillingCycleTimestamp.cs` |
+| **Network recovery (HTTP 403)** | `MASTER_CONTEXT.md` § Network recovery | `Services/CursorNetworkRecoveryService.cs`, `Services/CursorHttpTransport.cs`, `Services/CursorHttpRetry.cs` |
+| **Refresh failure UX** | `MASTER_CONTEXT.md` § Refresh failure diagnostics | `Services/CursorRefreshFailureDescriber.cs`, `ViewModels/MainViewModel.cs` |
+| **Tray display** | `MASTER_CONTEXT.md` § Tray menu | `Helpers/TrayDisplayFormatter.cs`, `Services/TrayIconService.cs` |
 | **Auth (Cursor IDE tokens)** | `MASTER_CONTEXT.md` § Security | `Services/CursorAuthService.cs`, `Services/CursorAuthStateReader.cs` |
 | **Quota & daily plan math** | `DECISIONS_CHANGELOG.md` (2026-09 fixed 21-day phase), `MASTER_CONTEXT.md` § Domain | `Services/QuotaCalculator.cs`, `Services/DailyPlanCalculator.cs`, `Helpers/DailyTargetProgressCalculator.cs` |
 | **Usage history & charts** | `MASTER_CONTEXT.md` § Features | `Services/UsageHistoryService.cs`, `Services/QuotaSnapshotRepository.cs`, `Controls/UsageHistoryChart.*` |
@@ -39,7 +42,7 @@
 | **Localization** | `MASTER_CONTEXT.md` § i18n | `Localization/**`, `Resources/Strings*.resx` |
 | **Tray & startup** | `MASTER_CONTEXT.md` § Platform | `Services/TrayIconService.cs`, `Services/StartupService.cs` |
 | **Theming** | — | `Services/ThemeService.cs`, `App.xaml` |
-| **Diagnostics / logging** | `MASTER_CONTEXT.md` § Security | `Services/QuotaDiagnosticLogger.cs` |
+| **Diagnostics / logging** | `MASTER_CONTEXT.md` § Security, § Reset countdown | `Services/QuotaDiagnosticLogger.cs` |
 | **Tests** | `MASTER_CONTEXT.md` § Testing | `Quota.Tests/**` |
 | **Build & release** | `README.md`, `MASTER_CONTEXT.md` § Stack | `Quota.csproj`, `dotnet build -c Release` |
 

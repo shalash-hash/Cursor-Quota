@@ -463,6 +463,24 @@
                                FontSize="11"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                Margin="0,0,0,2"/>
+                    <TextBlock Text="{Binding LastRefreshFailureText}"
+                               Style="{StaticResource CardCenteredText}"
+                               FontSize="11"
+                               Foreground="{DynamicResource ErrorBrush}"
+                               Margin="0,0,0,2"
+                               Visibility="{Binding HasRefreshFailure, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <TextBlock Text="{Binding LastRefreshFailureReasonText}"
+                               Style="{StaticResource CardCenteredText}"
+                               FontSize="11"
+                               Foreground="{DynamicResource ErrorBrush}"
+                               Margin="0,0,0,2"
+                               Visibility="{Binding HasRefreshFailure, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <TextBlock Text="{Binding NetworkRecoveryStatusText}"
+                               Style="{StaticResource CardCenteredText}"
+                               FontSize="11"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Margin="0,0,0,2"
+                               Visibility="{Binding IsNetworkRecovering, Converter={StaticResource BoolToVisibilityConverter}}"/>
                     <TextBlock Text="{Binding PaceStatusText}"
                                Style="{StaticResource CardCenteredText}"
                                FontSize="11"

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Globalization;
 using System.Text;
+using Quota.Helpers;
 using Quota.Models;
 
 namespace Quota.Services;
@@ -85,6 +86,36 @@ public class QuotaDiagnosticLogger
         Write(builder.ToString());
     }
 
+    public void LogResetTimeDiagnostic(
+        long? usageCycleStartRaw,
+        long? usageCycleEndRaw,
+        long? planCycleEndRaw,
+        long canonicalEndRaw,
+        string canonicalSource,
+        DateTimeOffset periodStartOffset,
+        DateTimeOffset periodEndOffset)
+    {
+        var nowLocal = DateTimeOffset.Now;
+        var remaining = BillingCycleTimestamp.ComputeRemaining(canonicalEndRaw);
+        var builder = new StringBuilder();
+        builder.AppendLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] RESET_TIME_DIAGNOSTIC");
+        builder.AppendLine($"billing_cycle_start_raw={usageCycleStartRaw?.ToString(CultureInfo.InvariantCulture) ?? "null"}");
+        builder.AppendLine($"billing_cycle_end_raw={usageCycleEndRaw?.ToString(CultureInfo.InvariantCulture) ?? "null"}");
+        builder.AppendLine($"plan_billing_cycle_end_raw={planCycleEndRaw?.ToString(CultureInfo.InvariantCulture) ?? "null"}");
+        builder.AppendLine($"canonical_reset_raw={canonicalEndRaw.ToString(CultureInfo.InvariantCulture)}");
+        builder.AppendLine($"canonical_reset_source={canonicalSource}");
+        builder.AppendLine($"billing_cycle_start_utc={periodStartOffset.UtcDateTime:O}");
+        builder.AppendLine($"billing_cycle_end_utc={periodEndOffset.UtcDateTime:O}");
+        builder.AppendLine($"billing_cycle_start_local={periodStartOffset.ToLocalTime():O}");
+        builder.AppendLine($"billing_cycle_end_local={periodEndOffset.ToLocalTime():O}");
+        builder.AppendLine($"now_local={nowLocal:O}");
+        builder.AppendLine($"remaining_exact={FormatExactRemaining(remaining)}");
+        builder.AppendLine($"timezone_id={TimeZoneInfo.Local.Id}");
+        builder.AppendLine($"timezone_offset={TimeZoneInfo.Local.GetUtcOffset(nowLocal):c}");
+
+        Write(builder.ToString());
+    }
+
     public void LogFetchFailure(int statusCode, string endpoint, string reason)
     {
         var message =
@@ -124,9 +155,78 @@ public class QuotaDiagnosticLogger
             $"api={apiPercent.ToString("G17", CultureInfo.InvariantCulture)}");
     }
 
-    public void LogRefreshFailed(RefreshSource source, string error)
+    public void LogRefreshFailed(RefreshSource source, DateTime failureTime, RefreshFailureDetails details)
     {
-        Write($"[{DateTime.Now:HH:mm:ss}] REFRESH_FAILED source={source} error={error}");
+        var builder = new StringBuilder();
+        builder.AppendLine($"[{failureTime:yyyy-MM-dd HH:mm:ss}] REFRESH_FAILED");
+        builder.AppendLine($"source={source}");
+        builder.AppendLine($"time={failureTime:yyyy-MM-dd HH:mm:ss}");
+        builder.AppendLine($"error_type={details.ErrorType}");
+        builder.AppendLine($"reason={details.UserReason}");
+
+        if (details.HttpStatus is int httpStatus)
+            builder.AppendLine($"http_status={httpStatus}");
+
+        if (!string.IsNullOrWhiteSpace(details.EndpointCategory))
+            builder.AppendLine($"endpoint_category={details.EndpointCategory}");
+
+        if (!string.IsNullOrWhiteSpace(details.TechnicalReason)
+            && !string.Equals(details.TechnicalReason, details.UserReason, StringComparison.Ordinal))
+        {
+            builder.AppendLine($"technical_reason={details.TechnicalReason}");
+        }
+
+        Write(builder.ToString());
+    }
+
+    public virtual void LogHttpTransportReset(string reason)
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] HTTP_TRANSPORT_RESET reason={reason}");
+    }
+
+    public virtual void LogHttpRetryStart()
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] HTTP_RETRY_START");
+    }
+
+    public virtual void LogHttpRetrySuccess()
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] HTTP_RETRY_SUCCESS");
+    }
+
+    public virtual void LogHttpRetryFailed(string error)
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] HTTP_RETRY_FAILED error={error}");
+    }
+
+    public virtual void LogNetworkRecoveryEnter(string reason, string endpoint)
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] NETWORK_RECOVERY_ENTER reason={reason} endpoint={endpoint}");
+    }
+
+    public virtual void LogNetworkRecoveryAttempt(int number)
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] NETWORK_RECOVERY_ATTEMPT number={number}");
+    }
+
+    public virtual void LogNetworkRecoveryFailed(string reason)
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] NETWORK_RECOVERY_FAILED reason={reason}");
+    }
+
+    public virtual void LogNetworkRecoverySuccess()
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] NETWORK_RECOVERY_SUCCESS");
+    }
+
+    public virtual void LogNetworkRecoveryExit()
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] NETWORK_RECOVERY_EXIT");
+    }
+
+    public virtual void LogNetworkRecoveryBackoff(TimeSpan interval)
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] NETWORK_RECOVERY_BACKOFF interval={FormatInterval(interval)}");
     }
 
     public void LogCursorAuthSessionChanged()
@@ -154,4 +254,17 @@ public class QuotaDiagnosticLogger
 
     private static string FormatUsd(decimal value) =>
         value.ToString("0.00", CultureInfo.InvariantCulture);
+
+    private static string FormatInterval(TimeSpan interval) =>
+        interval.TotalSeconds >= 1
+            ? $"{interval.TotalSeconds:0}s"
+            : $"{interval.TotalMilliseconds:0}ms";
+
+    private static string FormatExactRemaining(TimeSpan remaining)
+    {
+        if (remaining < TimeSpan.Zero)
+            remaining = TimeSpan.Zero;
+
+        return $"{(int)remaining.TotalHours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+    }
 }

@@ -108,6 +108,15 @@
   <data name="LastUpdatedFormat" xml:space="preserve">
     <value>Last updated: {0}</value>
   </data>
+  <data name="RefreshFailedAtFormat" xml:space="preserve">
+    <value>Failed to refresh data: {0}</value>
+  </data>
+  <data name="RefreshFailureReasonFormat" xml:space="preserve">
+    <value>Reason: {0}</value>
+  </data>
+  <data name="NetworkRecoveryStatus" xml:space="preserve">
+    <value>No access to Cursor. Reconnecting…</value>
+  </data>
   <data name="Open" xml:space="preserve">
     <value>Open</value>
   </data>
@@ -170,6 +179,9 @@
   </data>
   <data name="TodayPoolsDetailWithAmountFormat" xml:space="preserve">
     <value>Today: models {0} ({1}), API {2} ({3})</value>
+  </data>
+  <data name="HoursMinutesAbbreviatedFormat" xml:space="preserve">
+    <value>{0} h {1} m</value>
   </data>
   <data name="DaysPatternZero" xml:space="preserve">
     <value>{0} days</value>
@@ -269,6 +281,12 @@
   </data>
   <data name="TrayMenuApiFormat" xml:space="preserve">
     <value>API: {0}</value>
+  </data>
+  <data name="TrayMenuApiWithSpendFormat" xml:space="preserve">
+    <value>API: {0} of {1} — {2}</value>
+  </data>
+  <data name="TrayModelsBonusUsedFormat" xml:space="preserve">
+    <value>Models bonus: {0} used</value>
   </data>
   <data name="TrayUpdatedFormat" xml:space="preserve">
     <value>Updated: {0}</value>

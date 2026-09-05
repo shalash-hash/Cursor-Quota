@@ -1,4 +1,3 @@
-using System.Net.Http;
 using System.Windows;
 using Quota.Localization;
 using Quota.Services;
@@ -11,20 +10,17 @@ public partial class App : WpfApplication
 {
     private TrayIconService? _trayIconService;
     private MainViewModel? _viewModel;
-    private HttpClient? _httpClient;
+    private CursorHttpTransport? _httpTransport;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        _httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(30)
-        };
+        _httpTransport = new CursorHttpTransport();
 
         var diagnosticLogger = new QuotaDiagnosticLogger();
-        var authService = new CursorAuthService(_httpClient, diagnosticLogger);
-        var quotaUsageProvider = new CursorQuotaUsageProvider(_httpClient, authService, diagnosticLogger);
+        var authService = new CursorAuthService(_httpTransport, diagnosticLogger);
+        var quotaUsageProvider = new CursorQuotaUsageProvider(_httpTransport, authService, diagnosticLogger);
         var quotaCalculator = new QuotaCalculator();
         var startupService = new StartupService();
         var snapshotRepository = new QuotaSnapshotRepository();
@@ -43,7 +39,8 @@ public partial class App : WpfApplication
             diagnosticLogger,
             uiSettingsService,
             themeService,
-            localizationService);
+            localizationService,
+            _httpTransport);
 
         var mainWindow = new MainWindow(_viewModel);
         mainWindow.ApplyWindowSettings(uiSettingsService);
@@ -62,7 +59,7 @@ public partial class App : WpfApplication
     {
         _viewModel?.Dispose();
         _trayIconService?.Dispose();
-        _httpClient?.Dispose();
+        _httpTransport?.Dispose();
         base.OnExit(e);
     }
 }

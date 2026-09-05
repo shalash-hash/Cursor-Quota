@@ -19,6 +19,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     private readonly UsageHistoryService _usageHistoryService;
     private readonly QuotaDiagnosticLogger _logger;
     private readonly QuotaRefreshScheduler _refreshScheduler;
+    private readonly ICursorNetworkRecovery _networkRecovery;
     private readonly UiSettingsService _uiSettingsService;
     private readonly ThemeService _themeService;
     private readonly ILocalizationService _localizationService;
@@ -88,8 +89,14 @@ public class MainViewModel : ViewModelBase, IDisposable
     private object[] _errorMessageArgs = [];
     private string _lastUpdateText = string.Empty;
     private string _lastUpdateTimeText = string.Empty;
+    private string _lastRefreshFailureText = string.Empty;
+    private string _lastRefreshFailureReasonText = string.Empty;
+    private DateTime? _lastRefreshFailureTime;
+    private string? _lastRefreshFailureReason;
+    private string _networkRecoveryStatusText = string.Empty;
     private string _refreshButtonText = string.Empty;
     private bool _isRefreshing;
+    private bool _isNetworkRecovering;
     private bool _isStartupEnabled;
     private bool _isDarkMode;
     private bool _isStatisticsView;
@@ -108,7 +115,8 @@ public class MainViewModel : ViewModelBase, IDisposable
         QuotaDiagnosticLogger logger,
         UiSettingsService uiSettingsService,
         ThemeService themeService,
-        ILocalizationService localizationService)
+        ILocalizationService localizationService,
+        CursorHttpTransport? httpTransport = null)
     {
         _quotaUsageProvider = quotaUsageProvider;
         _quotaCalculator = quotaCalculator;
@@ -122,6 +130,16 @@ public class MainViewModel : ViewModelBase, IDisposable
         _uiSettings = _uiSettingsService.Load();
         _isDarkMode = _themeService.IsDarkMode;
         _localizationService.PropertyChanged += OnLocalizationChanged;
+
+        _networkRecovery = httpTransport is not null
+            ? new CursorNetworkRecoveryService(
+                httpTransport,
+                logger,
+                () => _quotaUsageProvider.GetUsageAsync(),
+                _refreshLock)
+            : NoOpCursorNetworkRecovery.Instance;
+        _networkRecovery.RecoverySucceeded += OnNetworkRecoverySucceededAsync;
+        _networkRecovery.RecoveryEnded += OnNetworkRecoveryEnded;
 
         RefreshCommand = new RelayCommand(
             () => RefreshAsync(RefreshSource.Manual),
@@ -522,6 +540,36 @@ public class MainViewModel : ViewModelBase, IDisposable
         private set => SetProperty(ref _lastUpdateTimeText, value);
     }
 
+    public bool HasRefreshFailure => !string.IsNullOrEmpty(LastRefreshFailureText);
+
+    public string LastRefreshFailureText
+    {
+        get => _lastRefreshFailureText;
+        private set
+        {
+            if (SetProperty(ref _lastRefreshFailureText, value))
+                OnPropertyChanged(nameof(HasRefreshFailure));
+        }
+    }
+
+    public string LastRefreshFailureReasonText
+    {
+        get => _lastRefreshFailureReasonText;
+        private set => SetProperty(ref _lastRefreshFailureReasonText, value);
+    }
+
+    public bool IsNetworkRecovering
+    {
+        get => _isNetworkRecovering;
+        private set => SetProperty(ref _isNetworkRecovering, value);
+    }
+
+    public string NetworkRecoveryStatusText
+    {
+        get => _networkRecoveryStatusText;
+        private set => SetProperty(ref _networkRecoveryStatusText, value);
+    }
+
     public bool IsStartupEnabled
     {
         get => _isStartupEnabled;
@@ -554,6 +602,18 @@ public class MainViewModel : ViewModelBase, IDisposable
 
     public async Task RefreshAsync(RefreshSource source)
     {
+        if (_networkRecovery.IsActive)
+        {
+            if (source == RefreshSource.Timer)
+                return;
+
+            if (source == RefreshSource.Manual)
+            {
+                _networkRecovery.RequestImmediateAttempt();
+                return;
+            }
+        }
+
         if (!await _refreshLock.WaitAsync(0).ConfigureAwait(false))
         {
             if (source == RefreshSource.Manual)
@@ -577,7 +637,10 @@ public class MainViewModel : ViewModelBase, IDisposable
                 _lastSuccessfulUsage = usage;
                 _lastSuccessfulUpdate = successTime.LocalDateTime;
                 ApplyUsage(usage);
+                _errorMessageKey = null;
+                _errorMessageArgs = [];
                 ErrorMessage = null;
+                ClearRefreshFailure();
                 UpdateLastUpdateText();
             });
 
@@ -592,13 +655,21 @@ public class MainViewModel : ViewModelBase, IDisposable
         }
         catch (CursorAuthException ex)
         {
-            RunOnUi(() => HandleRefreshError("CursorAuthFailed"));
-            _logger.LogRefreshFailed(source, ex.Message);
+            var failureTime = DateTime.Now;
+            var details = CursorRefreshFailureDescriber.Describe(ex);
+            RunOnUi(() => HandleRefreshFailure("CursorAuthFailed", failureTime, details));
+            _logger.LogRefreshFailed(source, failureTime, details);
+            if (CursorApiPathFailure.IsPathFailure(ex))
+                BeginNetworkRecovery(CursorApiPathFailure.DescribeEndpoint(ex));
         }
         catch (Exception ex)
         {
-            RunOnUi(() => HandleRefreshError("UpdateFailedGeneric"));
-            _logger.LogRefreshFailed(source, ex.GetType().Name);
+            var failureTime = DateTime.Now;
+            var details = CursorRefreshFailureDescriber.Describe(ex);
+            RunOnUi(() => HandleRefreshFailure("UpdateFailedGeneric", failureTime, details));
+            _logger.LogRefreshFailed(source, failureTime, details);
+            if (CursorApiPathFailure.IsPathFailure(ex))
+                BeginNetworkRecovery(CursorApiPathFailure.DescribeEndpoint(ex));
         }
         finally
         {
@@ -626,9 +697,65 @@ public class MainViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         _localizationService.PropertyChanged -= OnLocalizationChanged;
+        _networkRecovery.RecoveryEnded -= OnNetworkRecoveryEnded;
+        _networkRecovery.RecoverySucceeded -= OnNetworkRecoverySucceededAsync;
+        _networkRecovery.Dispose();
         StopResetCountdown();
         _refreshScheduler.Dispose();
         _refreshLock.Dispose();
+    }
+
+    private void BeginNetworkRecovery(string endpoint)
+    {
+        RunOnUi(ActivateNetworkRecoveryUi);
+        _refreshScheduler.Pause();
+        _networkRecovery.EnterRecovery(endpoint);
+    }
+
+    private void ActivateNetworkRecoveryUi()
+    {
+        IsNetworkRecovering = true;
+        NetworkRecoveryStatusText = _localizationService["NetworkRecoveryStatus"];
+    }
+
+    private void OnNetworkRecoveryEnded()
+    {
+        RunOnUi(DeactivateNetworkRecoveryUi);
+        _refreshScheduler.Resume();
+    }
+
+    private void DeactivateNetworkRecoveryUi()
+    {
+        IsNetworkRecovering = false;
+        NetworkRecoveryStatusText = string.Empty;
+    }
+
+    private async Task OnNetworkRecoverySucceededAsync(QuotaUsage snapshot)
+    {
+        var withBonus = await _snapshotRepository.EnrichWithBonusBaselineAsync(snapshot).ConfigureAwait(false);
+        var usage = await _snapshotRepository.EnrichWithTodayUsageAsync(withBonus).ConfigureAwait(false);
+        var successTime = DateTimeOffset.Now;
+
+        RunOnUi(() =>
+        {
+            _lastSuccessfulUsage = usage;
+            _lastSuccessfulUpdate = successTime.LocalDateTime;
+            ApplyUsage(usage);
+            _errorMessageKey = null;
+            _errorMessageArgs = [];
+            ErrorMessage = null;
+            ClearRefreshFailure();
+            UpdateLastUpdateText();
+        });
+
+        _logger.LogRefreshSuccess(
+            RefreshSource.NetworkRecovery,
+            usage.TotalUsedPercent,
+            usage.FirstPartyUsedPercent,
+            usage.ApiUsedPercent);
+
+        if (IsStatisticsView)
+            await LoadStatisticsAsync().ConfigureAwait(false);
     }
 
     private void SetRefreshingState(bool isRefreshing)
@@ -638,12 +765,39 @@ public class MainViewModel : ViewModelBase, IDisposable
         ((RelayCommand)RefreshCommand).RaiseCanExecuteChanged();
     }
 
-    private void HandleRefreshError(string key, params object[] args)
+    private void HandleRefreshFailure(string key, DateTime failureTime, RefreshFailureDetails details)
     {
-        SetError(key, args);
+        SetError(key);
+        _lastRefreshFailureTime = failureTime;
+        _lastRefreshFailureReason = details.UserReason;
+        UpdateRefreshFailureText();
 
         if (_lastSuccessfulUsage is not null)
             ApplyUsage(_lastSuccessfulUsage);
+    }
+
+    private void ClearRefreshFailure()
+    {
+        _lastRefreshFailureTime = null;
+        _lastRefreshFailureReason = null;
+        LastRefreshFailureText = string.Empty;
+        LastRefreshFailureReasonText = string.Empty;
+    }
+
+    private void UpdateRefreshFailureText()
+    {
+        if (_lastRefreshFailureTime is null || string.IsNullOrWhiteSpace(_lastRefreshFailureReason))
+        {
+            LastRefreshFailureText = string.Empty;
+            LastRefreshFailureReasonText = string.Empty;
+            return;
+        }
+
+        var formatted = _lastRefreshFailureTime.Value.ToString("T", _localizationService.CurrentCulture);
+        LastRefreshFailureText = _localizationService.Format("RefreshFailedAtFormat", formatted);
+        LastRefreshFailureReasonText = _localizationService.Format(
+            "RefreshFailureReasonFormat",
+            _lastRefreshFailureReason);
     }
 
     private void UpdateLastUpdateText()
@@ -1245,6 +1399,9 @@ public class MainViewModel : ViewModelBase, IDisposable
         TotalPoolsDetailText = string.Empty;
         TotalBonusDetailText = string.Empty;
         UpdateLastUpdateText();
+        UpdateRefreshFailureText();
+        if (IsNetworkRecovering)
+            NetworkRecoveryStatusText = _localizationService["NetworkRecoveryStatus"];
         SetRefreshingState(IsRefreshing);
         RebuildErrorMessage();
 
@@ -1281,7 +1438,9 @@ public class MainViewModel : ViewModelBase, IDisposable
         if (_lastSuccessfulUsage is null)
             return;
 
-        var remaining = _lastSuccessfulUsage.PeriodEnd - DateTime.Now;
+        var remaining = BillingCycleTimestamp.ComputeRemaining(
+            _lastSuccessfulUsage.PeriodEndUnixMilliseconds,
+            _lastSuccessfulUsage.PeriodEnd);
         DaysUntilResetText = _localizationService.Format(
             "QuotaResetInFormat",
             RemainingTimeFormatter.Format(remaining, _localizationService));
@@ -1293,7 +1452,9 @@ public class MainViewModel : ViewModelBase, IDisposable
         if (_resetCountdownTimer is null || _lastSuccessfulUsage is null)
             return;
 
-        var remaining = _lastSuccessfulUsage.PeriodEnd - DateTime.Now;
+        var remaining = BillingCycleTimestamp.ComputeRemaining(
+            _lastSuccessfulUsage.PeriodEndUnixMilliseconds,
+            _lastSuccessfulUsage.PeriodEnd);
         var interval = RemainingTimeFormatter.SuggestedRefreshInterval(remaining);
         if (_resetCountdownTimer.Interval != interval)
             _resetCountdownTimer.Interval = interval;

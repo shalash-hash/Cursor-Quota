@@ -21,6 +21,7 @@ public class CursorPlanUsageMapperTests
             },
             new DateTime(2026, 8, 1),
             new DateTime(2026, 9, 1),
+            0L,
             "Pro",
             2000);
 
@@ -42,6 +43,7 @@ public class CursorPlanUsageMapperTests
             },
             new DateTime(2026, 8, 1),
             new DateTime(2026, 9, 1),
+            0L,
             null,
             null);
 
@@ -64,6 +66,7 @@ public class CursorPlanUsageMapperTests
             },
             new DateTime(2026, 8, 1),
             new DateTime(2026, 9, 1),
+            0L,
             "Pro",
             2000);
 

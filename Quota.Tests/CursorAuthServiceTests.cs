@@ -169,8 +169,9 @@ public sealed class CursorAuthServiceTests : IDisposable
     private CursorAuthService CreateService(HttpMessageHandler? handler = null)
     {
         handler ??= new NoopHttpHandler();
+        var transport = new CursorHttpTransport(() => handler);
         return new CursorAuthService(
-            new HttpClient(handler),
+            transport,
             () => _databasePath,
             _diagnostics);
     }
@@ -219,6 +220,8 @@ public sealed class CursorAuthServiceTests : IDisposable
         public void LogCursorAuthSessionRemoved() => Messages.Add("Cursor auth session removed");
 
         public void LogAccessTokenExpiredRefreshing() => Messages.Add("Access token expired, refreshing");
+
+        public void LogHttpTransportReset(string reason) => Messages.Add($"HTTP_TRANSPORT_RESET reason={reason}");
     }
 
     private sealed class NoopHttpHandler : HttpMessageHandler

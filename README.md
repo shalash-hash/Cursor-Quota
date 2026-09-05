@@ -20,7 +20,8 @@
 - Connect RPC `GetCurrentPeriodUsage` на `https://api2.cursor.sh`
 - авторизация из локального `state.vscdb`
 - история снимков в SQLite (`%LOCALAPPDATA%\Quota\quota.db`)
-- диагностический лог: `logs/quota.log`
+- диагностический лог: `logs/quota.log` (включая `RESET_TIME_DIAGNOSTIC`, `NETWORK_RECOVERY_*`)
+- автоматическое восстановление при HTTP 403 (VPN / path failure)
 
 `MockQuotaUsageProvider` оставлен для разработки и тестов.
 
@@ -46,6 +47,7 @@ dotnet run
 ## Возможности
 
 - отображение использованной и оставшейся квоты (модели и API отдельно);
+- **countdown до сброса** в формате Cursor (часы+минуты в последние сутки);
 - расчёт **рекомендуемого** дневного расхода (не жёсткий лимит);
 - показатели за текущий день и статус темпа;
 - история расхода по локальным снимкам;

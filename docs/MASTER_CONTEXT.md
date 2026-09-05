@@ -49,9 +49,11 @@ App.xaml.cs (composition root)
   → TrayIconService
 ```
 
-**Refresh loop:** `QuotaRefreshScheduler` (~1 min) → `MainViewModel.RefreshAsync` → fetch → calculate → UI + snapshot persist.
+**Refresh loop:** `QuotaRefreshScheduler` (~1 min) → `MainViewModel.RefreshAsync` → fetch → calculate → UI + snapshot persist. При HTTP **403** от Cursor API — **network recovery mode** (см. § Network recovery). Локальный **reset countdown** обновляется отдельным таймером (не сетевой refresh).
 
 **Auth chain:** `GetUsageAsync` → `CursorAuthService.GetAccessTokenAsync` → read `state.vscdb` → optional OAuth refresh.
+
+**HTTP transport:** `CursorHttpTransport` (обёртка над `HttpClient` с `Reset()` при path failure); retry — `CursorHttpRetry`.
 
 ---
 
@@ -117,6 +119,8 @@ App.xaml.cs (composition root)
 
 **`realResetDate` (`PeriodEnd`):** момент rollover Cursor (время из `billingCycleEnd`). Граница **exclusive** в точный instant; календарный день reset до rollover ещё считается одним расходным днём (`CountRemainingDays` → `Ceiling(periodEnd − now)`).
 
+**Reset countdown (UI):** канонический instant = `billingCycleEnd` Unix ms из `GetCurrentPeriodUsage` (fallback: `GetPlanInfo.planInfo.billingCycleEnd`). Расчёт как в Cursor Settings → Plan & Usage: `remainingMs = billingCycleEnd − UtcNow`. Хранится в `QuotaUsage.PeriodEndUnixMilliseconds`; `PeriodEnd` (local `DateTime`) — для календарной логики. Формат: ≥24h → дни; &lt;24h → часы+минуты; &lt;1h → минуты; &lt;60s → секунды. Локальный таймер: ≥24h — раз в минуту; &lt;24h — раз в секунду. Диагностика: `RESET_TIME_DIAGNOSTIC` в `quota.log`.
+
 **Короткий цикл (< 21 дня):** `acceleratedEndInclusive` ограничен `realResetDate`; резервная фаза может отсутствовать.
 
 **Опережение / отставание:** сравнение факта и плана в **USD** (`DailyTargetProgressCalculator`, `QuotaMonetaryHelper`). Проценты — производное для отображения.
@@ -126,6 +130,18 @@ App.xaml.cs (composition root)
 ### Usage history
 
 Периодические **snapshots** в SQLite → агрегация по bucket'ам → графики (без изменения расчёта при UI-правках).
+
+### Network recovery (HTTP 403)
+
+При **HTTP 403** от `api2.cursor.sh` (часто VPN / path failure): `CursorHttpTransport.Reset()` + вход в **NETWORK RECOVERY MODE** (`CursorNetworkRecoveryService`). Scheduler refresh **паузится**; recovery loop: 1 с первые 30 с, затем 10 с; каждая попытка — свежий transport. Успех → обычный refresh; выход из recovery. Логи: `NETWORK_RECOVERY_*`, `HTTP_TRANSPORT_RESET`. Ручной refresh во время recovery — немедленная попытка.
+
+### Refresh failure diagnostics
+
+При неудачном refresh UI показывает «Не удалось обновить данные» + «Причина: …» (`CursorRefreshFailureDescriber`). Структурированный `REFRESH_FAILED` в `quota.log`. Очищается при успешном refresh.
+
+### Tray menu
+
+Структура: общий %; Models %; combined spend (`$used из ~$limit` base); Models bonus (если &gt; 0); API: `$used из $limit — X%`; время обновления. Combined spend — `QuotaMonetaryHelper.ResolveCombinedDisplay` (base pools, не raw Models limit).
 
 ---
 
@@ -155,8 +171,9 @@ App.xaml.cs (composition root)
 ## 8. Testing
 
 - Проект: `Quota.Tests` (xUnit).
-- Покрытие: калькуляторы, monetary helpers, auth sync, history, localization, mappers.
+- Покрытие: калькуляторы, monetary helpers, auth sync, history, localization, mappers, network recovery, reset countdown, tray formatter.
 - Запуск: `dotnet test Quota.Tests/Quota.Tests.csproj -c Release`
+- **235 tests** (Release, 2026-09-05).
 - `InternalsVisibleTo` для тестов auth internals.
 
 ---

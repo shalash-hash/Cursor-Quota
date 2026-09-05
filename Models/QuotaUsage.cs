@@ -26,6 +26,9 @@ public class QuotaUsage
 
     public DateTime PeriodEnd { get; init; }
 
+    /// <summary>Канонический reset instant из Cursor billingCycleEnd (Unix ms).</summary>
+    public long PeriodEndUnixMilliseconds { get; init; }
+
     public DateTime RetrievedAt { get; init; }
 
     public string? PlanName { get; init; }

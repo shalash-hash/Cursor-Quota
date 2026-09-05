@@ -197,7 +197,7 @@
 | **Reason** | Live diagnostics: bonus spend растёт при `remainingBonus=false`; combined used включал bonus, remaining — нет |
 | **Affected docs** | MASTER_CONTEXT, HANDOFF |
 | **Affected code** | `QuotaBonusHelper`, `QuotaMonetaryHelper`, `MainViewModel`, `BonusAvailability`, strings, tests |
-| **Status** | Active (uncommitted WIP) |
+| **Status** | Active |
 
 ---
 
@@ -210,7 +210,7 @@
 | **Reason** | Snapshot/API diagnostics: API рост всегда двигает `totalSpend`; `modelsBonus` завышался на `apiUsed` |
 | **Affected docs** | MASTER_CONTEXT § Raw totalSpend, HANDOFF |
 | **Affected code** | `QuotaSpendResolver`, `CursorPlanUsageMapper`, `QuotaUsageEnricher`, `QuotaMonetaryHelper`, `QuotaSnapshotRepository`, `UsageHistoryService`, `TrayDisplayFormatter`, tests |
-| **Status** | Active (uncommitted WIP) |
+| **Status** | Active |
 
 ---
 
@@ -224,3 +224,56 @@
 | **Affected docs** | `docs/*`, `AGENTS.md` |
 | **Affected code** | — |
 | **Status** | Active |
+
+---
+
+## 2026-09-05 — Reset countdown aligned with Cursor billingCycleEnd
+
+| Field | Value |
+|-------|-------|
+| **Decision** | Countdown до сброса квоты = `billingCycleEnd` Unix ms из `GetCurrentPeriodUsage` (fallback `GetPlanInfo.billingCycleEnd`). Расчёт: `remainingMs = endMs − UtcNow` (как Cursor UI `DKf`). UI: ≥24h дни; &lt;24h часы+минуты (floor); &lt;1h минуты; &lt;60s секунды. Локальный таймер: ≥24h — 1 мин; &lt;24h — 1 с. Не другой endpoint, не +N часов. |
+| **Supersedes** | `PeriodEnd − DateTime.Now` + отображение только целых часов |
+| **Reason** | Визуальное расхождение с Cursor Plan & Usage (~2h) из-за усечения минут, не другого timestamp |
+| **Affected docs** | MASTER_CONTEXT § Reset countdown, HANDOFF |
+| **Affected code** | `BillingCycleTimestamp`, `RemainingTimeFormatter`, `QuotaUsage.PeriodEndUnixMilliseconds`, `CursorQuotaUsageProvider`, `MainViewModel`, `QuotaDiagnosticLogger`, strings, tests |
+| **Status** | Active |
+
+---
+
+## 2026-09-05 — HTTP 403 network recovery mode
+
+| Field | Value |
+|-------|-------|
+| **Decision** | HTTP 403 от Cursor API → `CursorHttpTransport.Reset()` + **network recovery loop** (1 с × 30 с, затем 10 с). Обычный scheduler refresh **паузится** во время recovery. Успешный fetch выходит из recovery. |
+| **Supersedes** | Single failed refresh until next scheduler tick |
+| **Reason** | VPN / transient path failures к `api2.cursor.sh` |
+| **Affected docs** | MASTER_CONTEXT § Network recovery |
+| **Affected code** | `CursorHttpTransport`, `CursorHttpRetry`, `CursorNetworkRecoveryService`, `MainViewModel`, `QuotaRefreshScheduler`, tests |
+| **Status** | Active |
+
+---
+
+## 2026-09-05 — Refresh failure diagnostics in UI
+
+| Field | Value |
+|-------|-------|
+| **Decision** | При failed refresh показывать пользователю «Не удалось обновить данные» и «Причина: …»; structured `REFRESH_FAILED` в log. Очищать при success. |
+| **Supersedes** | Silent failure / generic error only |
+| **Reason** | Диагностика без чтения log-файла |
+| **Affected docs** | MASTER_CONTEXT § Refresh failure diagnostics |
+| **Affected code** | `CursorRefreshFailureDescriber`, `MainViewModel`, `MainWindow.xaml`, `QuotaDiagnosticLogger`, strings, tests |
+| **Status** | Active |
+
+---
+
+## 2026-09-05 — Tray menu: combined base spend and API line
+
+| Field | Value |
+|-------|-------|
+| **Decision** | Tray: combined `$used из ~$limit` через `ResolveCombinedDisplay` (base pools); Models bonus отдельной строкой; API — `$used из $limit — X%` в одной строке. |
+| **Supersedes** | Models actual vs Models base in tray; API % без spend |
+| **Reason** | Согласованность с главным экраном; меньше путаницы при bonus |
+| **Affected docs** | MASTER_CONTEXT § Tray menu |
+| **Affected code** | `TrayDisplayFormatter`, `Strings*.resx`, tests |
+| **Status** | Active |
+

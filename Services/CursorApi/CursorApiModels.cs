@@ -72,4 +72,7 @@ internal sealed class PlanInfo
 
     [JsonPropertyName("includedAmountCents")]
     public long? IncludedAmountCents { get; set; }
+
+    [JsonPropertyName("billingCycleEnd")]
+    public string? BillingCycleEnd { get; set; }
 }

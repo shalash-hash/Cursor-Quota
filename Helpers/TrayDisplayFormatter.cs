@@ -62,24 +62,37 @@ public static class TrayDisplayFormatter
         var menuLines = new List<string>
         {
             localization.Format("TrayMenuTotalFormat", totalPercentText),
-            localization.Format("TrayMenuModelsFormat", modelsPercent),
-            localization.Format("TrayMenuApiFormat", apiPercent)
+            localization.Format("TrayMenuModelsFormat", modelsPercent)
         };
 
-        if (QuotaSpendResolver.ResolveModelsActualUsedUsd(usage) is decimal modelsActual)
+        var combined = QuotaMonetaryHelper.ResolveCombinedDisplay(usage);
+        if (combined.UsedUsd is not null)
         {
             menuLines.Add(QuotaMonetaryHelper.FormatSpendRange(
-                modelsActual,
-                usage.ModelsBaseLimitUsd ?? usage.ModelsEstimatedLimitUsd,
+                combined.UsedUsd.Value,
+                combined.LimitUsd,
                 culture));
+        }
+
+        var modelsBreakdown = QuotaBonusHelper.ResolveModelsBreakdown(usage);
+        if (modelsBreakdown.BonusUsedUsd > 0m)
+        {
+            menuLines.Add(localization.Format(
+                "TrayModelsBonusUsedFormat",
+                QuotaMonetaryHelper.FormatUsd(modelsBreakdown.BonusUsedUsd, culture)));
         }
 
         if (usage.ApiUsedAmountUsd is not null && usage.ApiIncludedAmountUsd is not null)
         {
             menuLines.Add(localization.Format(
-                "ApiSpendFormat",
+                "TrayMenuApiWithSpendFormat",
                 QuotaMonetaryHelper.FormatUsd(usage.ApiUsedAmountUsd.Value, culture),
-                QuotaMonetaryHelper.FormatUsd(usage.ApiIncludedAmountUsd.Value, culture)));
+                QuotaMonetaryHelper.FormatUsd(usage.ApiIncludedAmountUsd.Value, culture),
+                apiPercent));
+        }
+        else
+        {
+            menuLines.Add(localization.Format("TrayMenuApiFormat", apiPercent));
         }
 
         if (lastSuccessfulUpdate is not null)

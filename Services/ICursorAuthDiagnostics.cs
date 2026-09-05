@@ -7,6 +7,8 @@ internal interface ICursorAuthDiagnostics
     void LogCursorAuthSessionRemoved();
 
     void LogAccessTokenExpiredRefreshing();
+
+    void LogHttpTransportReset(string reason);
 }
 
 internal sealed class NullCursorAuthDiagnostics : ICursorAuthDiagnostics
@@ -18,6 +20,8 @@ internal sealed class NullCursorAuthDiagnostics : ICursorAuthDiagnostics
     public void LogCursorAuthSessionRemoved() { }
 
     public void LogAccessTokenExpiredRefreshing() { }
+
+    public void LogHttpTransportReset(string reason) { }
 }
 
 internal sealed class QuotaDiagnosticLoggerAuthDiagnostics : ICursorAuthDiagnostics
@@ -34,4 +38,6 @@ internal sealed class QuotaDiagnosticLoggerAuthDiagnostics : ICursorAuthDiagnost
     public void LogCursorAuthSessionRemoved() => _logger.LogCursorAuthSessionRemoved();
 
     public void LogAccessTokenExpiredRefreshing() => _logger.LogAccessTokenExpiredRefreshing();
+
+    public void LogHttpTransportReset(string reason) => _logger.LogHttpTransportReset(reason);
 }

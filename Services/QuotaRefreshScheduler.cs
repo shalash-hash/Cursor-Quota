@@ -6,6 +6,7 @@ public sealed class QuotaRefreshScheduler : IDisposable
 {
     private readonly System.Windows.Threading.DispatcherTimer _timer;
     private bool _isDisposed;
+    private bool _isPaused;
 
     public QuotaRefreshScheduler(Func<RefreshSource, Task> refreshAction, TimeSpan interval)
     {
@@ -16,6 +17,9 @@ public sealed class QuotaRefreshScheduler : IDisposable
 
         _timer.Tick += async (_, _) =>
         {
+            if (_isPaused)
+                return;
+
             try
             {
                 await refreshAction(RefreshSource.Timer);
@@ -27,6 +31,16 @@ public sealed class QuotaRefreshScheduler : IDisposable
         };
 
         _timer.Start();
+    }
+
+    public void Pause()
+    {
+        _isPaused = true;
+    }
+
+    public void Resume()
+    {
+        _isPaused = false;
     }
 
     public void Dispose()

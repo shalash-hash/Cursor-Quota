@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Quota.Helpers;
 using Quota.Models;
 using Quota.Services.CursorApi;
 
@@ -20,32 +21,48 @@ public class CursorQuotaUsageProvider : IQuotaUsageProvider
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly HttpClient _httpClient;
+    private readonly CursorHttpTransport _transport;
     private readonly CursorAuthService _authService;
     private readonly QuotaDiagnosticLogger _logger;
 
     public CursorQuotaUsageProvider(
-        HttpClient httpClient,
+        CursorHttpTransport transport,
         CursorAuthService authService,
         QuotaDiagnosticLogger logger)
     {
-        _httpClient = httpClient;
+        _transport = transport;
         _authService = authService;
         _logger = logger;
     }
 
-    public async Task<QuotaUsage> GetUsageAsync()
+    public Task<QuotaUsage> GetUsageAsync() =>
+        CursorHttpRetry.ExecuteAsync(
+            _transport,
+            _logger,
+            FetchUsageAsync);
+
+    private async Task<QuotaUsage> FetchUsageAsync(HttpClient httpClient, CancellationToken cancellationToken)
     {
-        var accessToken = await _authService.GetAccessTokenAsync();
+        var accessToken = await _authService.GetAccessTokenAsync(cancellationToken).ConfigureAwait(false);
 
         using var usageRequest = CreateRpcRequest(UsageEndpoint, accessToken);
-        using var usageResponse = await _httpClient.SendAsync(usageRequest);
+        using var usageResponse = await httpClient.SendAsync(usageRequest, cancellationToken).ConfigureAwait(false);
 
-        var usageBody = await usageResponse.Content.ReadAsStringAsync();
+        var usageBody = await usageResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!usageResponse.IsSuccessStatusCode)
         {
             _logger.LogFetchFailure((int)usageResponse.StatusCode, UsageEndpoint, "usage request failed");
-            throw new CursorQuotaFetchException("Не удалось получить данные квоты Cursor.");
+            if ((int)usageResponse.StatusCode == CursorApiPathFailure.PathFailureStatusCode)
+            {
+                _transport.Reset();
+                _logger.LogHttpTransportReset("HTTP_403");
+            }
+
+            throw new CursorQuotaFetchException(
+                "Не удалось получить данные квоты Cursor.",
+                (int)usageResponse.StatusCode,
+                usageResponse.ReasonPhrase,
+                "usage");
         }
 
         var usage = JsonSerializer.Deserialize<CurrentPeriodUsageResponse>(usageBody, JsonOptions)
@@ -67,32 +84,58 @@ public class CursorQuotaUsageProvider : IQuotaUsageProvider
 
         string? planName = null;
         long? includedAmountCents = usage.PlanUsage.Limit;
+        long? planBillingCycleEndRaw = null;
 
         try
         {
             using var planRequest = CreateRpcRequest(PlanInfoEndpoint, accessToken);
-            using var planResponse = await _httpClient.SendAsync(planRequest);
-            var planBody = await planResponse.Content.ReadAsStringAsync();
+            using var planResponse = await httpClient.SendAsync(planRequest, cancellationToken).ConfigureAwait(false);
+            var planBody = await planResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
             if (planResponse.IsSuccessStatusCode)
             {
                 var planInfo = JsonSerializer.Deserialize<PlanInfoResponse>(planBody, JsonOptions);
                 planName = planInfo?.PlanInfo?.PlanName;
                 includedAmountCents ??= planInfo?.PlanInfo?.IncludedAmountCents;
+                planBillingCycleEndRaw = TryParseUnixMilliseconds(planInfo?.PlanInfo?.BillingCycleEnd);
             }
+        }
+        catch (Exception ex) when (CursorNetworkFailure.IsTransportFailure(ex, cancellationToken))
+        {
+            throw;
         }
         catch
         {
             // Plan info is optional for quota display.
         }
 
-        var periodStart = ParseUnixMilliseconds(usage.BillingCycleStart);
-        var periodEnd = ParseUnixMilliseconds(usage.BillingCycleEnd);
+        var usageCycleStartRaw = ParseUnixMillisecondsOrThrow(usage.BillingCycleStart);
+        var usageCycleEndRaw = ParseUnixMillisecondsOrThrow(usage.BillingCycleEnd);
+        var canonicalEndRaw = usageCycleEndRaw ?? planBillingCycleEndRaw
+            ?? throw new CursorQuotaFetchException("Не удалось определить billing cycle в ответе Cursor.");
+        var canonicalSource = usageCycleEndRaw is not null
+            ? "GetCurrentPeriodUsage.billingCycleEnd"
+            : "GetPlanInfo.billingCycleEnd";
+
+        var periodStartOffset = BillingCycleTimestamp.ToDateTimeOffset(usageCycleStartRaw!.Value);
+        var periodEndOffset = BillingCycleTimestamp.ToDateTimeOffset(canonicalEndRaw);
+        var periodStart = periodStartOffset.LocalDateTime;
+        var periodEnd = periodEndOffset.LocalDateTime;
+
+        _logger.LogResetTimeDiagnostic(
+            usageCycleStartRaw,
+            usageCycleEndRaw,
+            planBillingCycleEndRaw,
+            canonicalEndRaw,
+            canonicalSource,
+            periodStartOffset,
+            periodEndOffset);
 
         var result = CursorPlanUsageMapper.Map(
             usage.PlanUsage,
             periodStart,
             periodEnd,
+            canonicalEndRaw,
             planName,
             includedAmountCents);
 
@@ -124,11 +167,23 @@ public class CursorQuotaUsageProvider : IQuotaUsageProvider
         return request;
     }
 
-    private static DateTime ParseUnixMilliseconds(string? value)
+    private static long? TryParseUnixMilliseconds(string? value)
     {
         if (string.IsNullOrWhiteSpace(value) || !long.TryParse(value, out var milliseconds))
-            throw new CursorQuotaFetchException("Не удалось определить billing cycle в ответе Cursor.");
+            return null;
 
-        return DateTimeOffset.FromUnixTimeMilliseconds(milliseconds).LocalDateTime;
+        return milliseconds;
+    }
+
+    private static long? ParseUnixMillisecondsOrThrow(string? value)
+    {
+        try
+        {
+            return BillingCycleTimestamp.ParseUnixMilliseconds(value);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
     }
 }

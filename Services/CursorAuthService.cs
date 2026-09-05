@@ -10,18 +10,18 @@ public class CursorAuthService
     private const string OAuthClientId = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB";
     private const string TokenEndpoint = "https://api2.cursor.sh/oauth/token";
 
-    private readonly HttpClient _httpClient;
+    private readonly CursorHttpTransport _transport;
     private readonly Func<string> _stateDatabasePathProvider;
     private readonly ICursorAuthDiagnostics _diagnostics;
     private string? _cachedAccessToken;
     private string? _cachedRefreshToken;
 
     public CursorAuthService(
-        HttpClient httpClient,
+        CursorHttpTransport transport,
         QuotaDiagnosticLogger? logger = null,
         Func<string>? stateDatabasePathProvider = null)
         : this(
-            httpClient,
+            transport,
             stateDatabasePathProvider
                 ?? (() => Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -36,11 +36,11 @@ public class CursorAuthService
     }
 
     internal CursorAuthService(
-        HttpClient httpClient,
+        CursorHttpTransport transport,
         Func<string> stateDatabasePathProvider,
         ICursorAuthDiagnostics diagnostics)
     {
-        _httpClient = httpClient;
+        _transport = transport;
         _stateDatabasePathProvider = stateDatabasePathProvider;
         _diagnostics = diagnostics;
     }
@@ -119,11 +119,19 @@ public class CursorAuthService
             Encoding.UTF8,
             "application/json");
 
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await _transport.GetClient().SendAsync(request, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
-            throw new CursorAuthException();
+        {
+            if ((int)response.StatusCode == CursorApiPathFailure.PathFailureStatusCode)
+            {
+                _transport.Reset();
+                _diagnostics.LogHttpTransportReset("HTTP_403");
+            }
+
+            throw new CursorAuthException((int)response.StatusCode, response.ReasonPhrase);
+        }
 
         using var document = JsonDocument.Parse(body);
         var root = document.RootElement;

@@ -426,6 +426,7 @@ public class QuotaSnapshotRepository
             HasYesterdayUsageData = yesterday is not null,
             PeriodStart = source.PeriodStart,
             PeriodEnd = source.PeriodEnd,
+            PeriodEndUnixMilliseconds = source.PeriodEndUnixMilliseconds,
             RetrievedAt = source.RetrievedAt,
             PlanName = source.PlanName,
             ApiIncludedAmountUsd = source.ApiIncludedAmountUsd,

@@ -13,25 +13,27 @@
 | Root | `D:\_APP\Quota` |
 | Branch | `main` |
 | Remote | `origin` → `https://github.com/shalash-hash/Cursor-Quota.git` |
-| Tracking | `main` up to date with `origin/main` (at last bootstrap) |
-| Last doc review | 2026-09-03 (bootstrap final check) |
+| Tracking | `main` up to date with `origin/main` after last push |
+| Last doc review | 2026-09-05 |
 
 ---
 
 ## Tracked changes status
 
-At last doc review: **uncommitted** — bootstrap docs + 21-day daily plan refactor. Last pushed commit: models remaining USD (see GitHub for exact SHA).
+At last doc review: **committed and pushed** — reset countdown, network recovery, refresh diagnostics, tray menu, prior bonus/Model C WIP.
 
 ---
 
 ## Recently implemented (product-relevant)
 
-- **Daily plan:** fixed 21-calendar-day Models accelerated phase (`cycleStart` = day 1 → last Phase 1 = `cycleStart + 20`; Reserve from `cycleStart + 21`); reserve tail spreads remaining Models + API until real reset via `CountRemainingDays` (replaces realReset−5 model and old `+1` spread formula).
+- **Reset countdown:** `billingCycleEnd` Unix ms (same source as Cursor Plan & Usage); `BillingCycleTimestamp.ComputeRemaining`; formatted h+m under 24h; `RESET_TIME_DIAGNOSTIC` in log.
+- **Network recovery:** HTTP 403 → transport reset + recovery loop (1s/10s); scheduler pause; `CursorHttpTransport` / `CursorHttpRetry`.
+- **Refresh failure UI:** structured error + reason under «Последнее обновление»; `REFRESH_FAILED` log; `CursorRefreshFailureDescriber`.
+- **Tray menu:** combined base spend; Models bonus line; API as `$used из $limit — X%`.
+- **Daily plan:** fixed 21-calendar-day Models accelerated phase; reserve tail until real reset.
 - **Auth:** `CursorAuthService` re-reads `state.vscdb` on every refresh.
+- **Bonus quota (Model C):** `totalSpend` = combined actual; `modelsActual = totalSpend − apiUsed`; combined card base-only; `remainingBonus=false` → Unknown.
 - **History UI:** separate stretchable chart cards.
-- **Models card:** `Осталось: $X` in dollars; **base quota** vs **bonus** shown separately after 100%.
-- **Bonus quota (Model C):** raw `totalSpend` = combined actual period spend (может включать API после spillover). `modelsActual = totalSpend − apiUsed`; `ModelsBonusUsedUsd = max(0, modelsActual − frozen base)`; **не** `totalSpend − base`. `combinedActual = totalSpend` (не `models + api` повторно). `bonusSpend` raw ≠ Models bonus. Combined card — base-only fraction; `remainingBonus=false` → Unknown.
-- **Ahead/behind:** relative % vs daily plan.
 
 ---
 
@@ -39,7 +41,7 @@ At last doc review: **uncommitted** — bootstrap docs + 21-day daily plan refac
 
 Full log: [`DECISIONS_CHANGELOG.md`](./DECISIONS_CHANGELOG.md)
 
-Key invariants: combined **base** quota in dollars (bonus excluded from main fraction); billing day from cycle start; **21 calendar days Models phase** (06.09–26.09 for 06.09→06.10 cycle) + variable reserve tail; `PeriodEnd` exclusive at rollover instant; daily plan is recommendation (bonus with unknown $ allowance excluded from $ plan); ahead/behind = relative %; `bonusSpend` (raw) ≠ Models bonus used; `remainingBonus=false` ≠ exhausted; `state.vscdb` auth each refresh; no tokens in logs/DB/settings.
+Key invariants: reset countdown from `billingCycleEnd` ms (Cursor DKf formula); combined **base** quota in dollars; billing day from cycle start; 21-day Models phase + variable reserve; `PeriodEnd` exclusive at rollover; daily plan is recommendation; `bonusSpend` (raw) ≠ Models bonus used; `remainingBonus=false` ≠ exhausted; HTTP 403 recovery without spamming API every second on normal path; no tokens in logs/DB/settings.
 
 ---
 
@@ -47,9 +49,9 @@ Key invariants: combined **base** quota in dollars (bonus excluded from main fra
 
 - Composition root: `App.xaml.cs` — all services wired manually (no DI container).
 - `MockQuotaUsageProvider` exists for dev/tests; production uses `CursorQuotaUsageProvider`.
-- Tests: `dotnet test Quota.Tests/Quota.Tests.csproj -c Release` (173 tests at last run).
+- Tests: `dotnet test Quota.Tests/Quota.Tests.csproj -c Release` (**235** tests).
 - Release exe: `bin/Release/net10.0-windows/Quota.exe`
-- User often requests: run tests → rebuild Release → stop old Quota → start new exe. **Do not commit/push unless explicitly asked.**
+- User often requests: run tests → rebuild Release → stop old Quota → start new exe.
 
 ---
 
@@ -66,9 +68,7 @@ Key invariants: combined **base** quota in dollars (bonus excluded from main fra
 
 ## Local-only WIP
 
-**Daily plan refactor** (21-day accelerated phase + reserve tail) and doc sync. Not committed.
-
-If WIP appears later: describe here only what matters for the next AI (semantic intent, not file dumps).
+None at last doc review. If WIP appears later: describe here only what matters for the next AI.
 
 ---
 

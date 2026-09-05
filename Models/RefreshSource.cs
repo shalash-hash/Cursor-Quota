@@ -4,5 +4,6 @@ public enum RefreshSource
 {
     Startup,
     Manual,
-    Timer
+    Timer,
+    NetworkRecovery
 }
