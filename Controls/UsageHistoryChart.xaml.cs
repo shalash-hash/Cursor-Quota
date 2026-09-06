@@ -277,7 +277,7 @@ public partial class UsageHistoryChart : UserControl
                 linePoints.Add(new Point(x, y));
             }
 
-            var smoothGeometry = CreateSmoothGeometry(linePoints);
+            var smoothGeometry = SmoothCurveGeometry.CreateSmoothGeometry(linePoints.ToList());
             ChartCanvas.Children.Add(new Path
             {
                 Data = smoothGeometry,
@@ -590,41 +590,6 @@ public partial class UsageHistoryChart : UserControl
         Canvas.SetLeft(text, centerX - 24);
         Canvas.SetTop(text, top);
         ChartCanvas.Children.Add(text);
-    }
-
-    private static Geometry CreateSmoothGeometry(PointCollection points)
-    {
-        var figure = new PathFigure { StartPoint = points[0] };
-        var geometry = new PathGeometry();
-        geometry.Figures.Add(figure);
-
-        if (points.Count == 1)
-            return geometry;
-
-        if (points.Count == 2)
-        {
-            figure.Segments.Add(new LineSegment(points[1], true));
-            return geometry;
-        }
-
-        for (var index = 0; index < points.Count - 1; index++)
-        {
-            var current = points[index];
-            var next = points[index + 1];
-            var previous = index == 0 ? current : points[index - 1];
-            var afterNext = index + 2 < points.Count ? points[index + 2] : next;
-
-            var control1 = new Point(
-                current.X + (next.X - previous.X) / 6,
-                current.Y + (next.Y - previous.Y) / 6);
-            var control2 = new Point(
-                next.X - (afterNext.X - current.X) / 6,
-                next.Y - (afterNext.Y - current.Y) / 6);
-
-            figure.Segments.Add(new BezierSegment(control1, control2, next, true));
-        }
-
-        return geometry;
     }
 
     private static Brush GetBrush(string resourceKey)

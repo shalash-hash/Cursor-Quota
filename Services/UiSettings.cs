@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Quota.Models;
 
 namespace Quota.Services;
 
@@ -21,4 +22,8 @@ public sealed class UiSettings
 
     [JsonPropertyName("isDarkMode")]
     public bool IsDarkMode { get; set; }
+
+    [JsonPropertyName("quotaPlanMode")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public QuotaPlanMode QuotaPlanMode { get; set; } = QuotaPlanMode.Optimal;
 }

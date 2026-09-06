@@ -199,6 +199,43 @@
             </Setter>
         </Style>
 
+        <Style x:Key="PlanModeToggleSwitch" TargetType="ToggleButton">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid Width="44" Height="24">
+                            <Border x:Name="Track"
+                                    CornerRadius="12"
+                                    Background="{DynamicResource SpentTodayBrush}"/>
+                            <Border x:Name="Thumb"
+                                    Width="18"
+                                    Height="18"
+                                    CornerRadius="9"
+                                    Background="{DynamicResource SwitchThumbBrush}"
+                                    HorizontalAlignment="Left"
+                                    Margin="3,0,0,0"
+                                    VerticalAlignment="Center"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track" Property="Background" Value="{DynamicResource SpentYesterdayBrush}"/>
+                                <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/>
+                                <Setter TargetName="Thumb" Property="Margin" Value="0,0,3,0"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.55"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="IconToggleButton" TargetType="ToggleButton">
             <Setter Property="Width" Value="34"/>
             <Setter Property="Height" Value="28"/>

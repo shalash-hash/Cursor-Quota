@@ -129,18 +129,18 @@ public static class QuotaMonetaryHelper
 
     public static decimal? ResolveCombinedBaseLimitUsd(QuotaUsage usage)
     {
-        decimal? limitUsd = null;
+        if (ResolveModelsBaseLimitUsd(usage) is not decimal modelsLimit)
+            return null;
 
-        if (ResolveModelsBaseLimitUsd(usage) is decimal modelsLimit)
-            limitUsd = modelsLimit;
+        var combined = modelsLimit;
 
         if (usage.ApiIncludedAmountUsd is decimal apiLimit)
-            limitUsd = (limitUsd ?? 0m) + apiLimit;
+            combined += apiLimit;
 
         if (usage.ApiKnownBonusAllowanceUsd is decimal apiBonusAllowance)
-            limitUsd = (limitUsd ?? 0m) + apiBonusAllowance;
+            combined += apiBonusAllowance;
 
-        return limitUsd;
+        return combined;
     }
 
     public static decimal? ResolveCombinedLimitUsd(QuotaUsage usage) =>
@@ -317,15 +317,15 @@ public static class QuotaMonetaryHelper
 
     private static decimal? ResolveCombinedLimitFromParts(decimal? modelsLimitUsd, decimal? apiLimitUsd)
     {
-        decimal? limitUsd = null;
+        if (modelsLimitUsd is null)
+            return null;
 
-        if (modelsLimitUsd is decimal modelsLimit)
-            limitUsd = modelsLimit;
+        var combined = modelsLimitUsd.Value;
 
         if (apiLimitUsd is decimal apiLimit)
-            limitUsd = (limitUsd ?? 0m) + apiLimit;
+            combined += apiLimit;
 
-        return limitUsd;
+        return combined;
     }
 }
 

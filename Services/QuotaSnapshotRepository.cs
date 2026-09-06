@@ -282,6 +282,28 @@ public class QuotaSnapshotRepository
         return result is long value && value > 0 ? value : null;
     }
 
+    public async Task<long?> GetLatestPreviousModelsBaseLimitCentsAsync(DateTime currentPeriodStart)
+    {
+        await EnsureInitializedAsync();
+
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT frozen_models_base_limit_cents
+            FROM billing_cycle_state
+            WHERE period_end <= $currentPeriodStart
+              AND frozen_models_base_limit_cents > 0
+            ORDER BY period_end DESC
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$currentPeriodStart", FormatPeriodParameter(currentPeriodStart));
+
+        var result = await command.ExecuteScalarAsync();
+        return result is long value && value > 0 ? value : null;
+    }
+
     public async Task UpsertFrozenModelsBaseLimitCentsAsync(
         DateTime periodStart,
         DateTime periodEnd,

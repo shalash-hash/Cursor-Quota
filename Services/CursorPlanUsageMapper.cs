@@ -14,15 +14,15 @@ internal static class CursorPlanUsageMapper
         string? planName,
         long? planIncludedAmountCents)
     {
-        var limitCents = ResolveLimitCents(planUsage, planIncludedAmountCents);
+        var apiLimitCents = ResolveApiLimitCents(planUsage, planIncludedAmountCents);
         var totalSpendCents = planUsage.TotalSpend;
         var includedSpendCents = planUsage.IncludedSpend;
 
         var autoPercent = planUsage.AutoPercentUsed ?? 0;
         var apiPercent = planUsage.ApiPercentUsed ?? 0;
 
-        decimal? apiIncludedUsd = limitCents is > 0
-            ? limitCents.Value / 100m
+        decimal? apiIncludedUsd = apiLimitCents is > 0
+            ? apiLimitCents.Value / 100m
             : null;
 
         decimal? apiUsedUsd = null;
@@ -65,7 +65,7 @@ internal static class CursorPlanUsageMapper
             ApiRemainingAmountUsd = apiRemainingUsd,
             TotalSpendCents = totalSpendCents,
             IncludedSpendCents = includedSpendCents,
-            LimitCents = limitCents,
+            LimitCents = apiLimitCents,
             AutoSpendCents = planUsage.AutoSpend,
             ApiSpendCents = planUsage.ApiSpend,
             AutoLimitCents = planUsage.AutoLimit,
@@ -123,14 +123,17 @@ internal static class CursorPlanUsageMapper
         if (planUsage.AutoPercentUsed is null || planUsage.ApiPercentUsed is null)
             return false;
 
-        if (ResolveLimitCents(planUsage, null) is > 0 && planUsage.IncludedSpend is not null)
+        if (ResolveApiLimitCents(planUsage, null) is > 0 && planUsage.IncludedSpend is not null)
             return true;
 
         return planUsage.TotalPercentUsed is not null;
     }
 
-    private static long? ResolveLimitCents(PlanUsage planUsage, long? planIncludedAmountCents)
+    private static long? ResolveApiLimitCents(PlanUsage planUsage, long? planIncludedAmountCents)
     {
+        if (planUsage.ApiLimit is > 0)
+            return planUsage.ApiLimit;
+
         if (planUsage.Limit is > 0)
             return planUsage.Limit;
 
@@ -139,5 +142,8 @@ internal static class CursorPlanUsageMapper
 
         return null;
     }
+
+    private static long? ResolveLimitCents(PlanUsage planUsage, long? planIncludedAmountCents) =>
+        ResolveApiLimitCents(planUsage, planIncludedAmountCents);
 }
 

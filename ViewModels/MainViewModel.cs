@@ -105,6 +105,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     private IReadOnlyList<UsageHistoryRangeOption> _historyRangeOptions = [];
     private string _statisticsSummaryText = string.Empty;
     private bool _hasStatisticsData;
+    private QuotaPlanMode _selectedPlanMode;
 
     public MainViewModel(
         IQuotaUsageProvider quotaUsageProvider,
@@ -128,6 +129,7 @@ public class MainViewModel : ViewModelBase, IDisposable
         _themeService = themeService;
         _localizationService = localizationService;
         _uiSettings = _uiSettingsService.Load();
+        _selectedPlanMode = _uiSettings.QuotaPlanMode;
         _isDarkMode = _themeService.IsDarkMode;
         _localizationService.PropertyChanged += OnLocalizationChanged;
 
@@ -153,6 +155,12 @@ public class MainViewModel : ViewModelBase, IDisposable
     }
 
     public event EventHandler? TrayDisplayChanged;
+
+    public bool IsOptimalPlanMode
+    {
+        get => _selectedPlanMode == QuotaPlanMode.Optimal;
+        set => SetPlanMode(value ? QuotaPlanMode.Optimal : QuotaPlanMode.Uniform);
+    }
 
     public ICommand RefreshCommand { get; }
 
@@ -816,7 +824,7 @@ public class MainViewModel : ViewModelBase, IDisposable
 
     private void ApplyUsage(QuotaUsage usage)
     {
-        var calculation = _quotaCalculator.Calculate(usage);
+        var calculation = _quotaCalculator.Calculate(usage, _selectedPlanMode);
         var digits = DisplayDigits;
         var culture = _localizationService.CurrentCulture;
         var combined = QuotaMonetaryHelper.ResolveCombinedDisplay(usage);
@@ -1350,6 +1358,20 @@ public class MainViewModel : ViewModelBase, IDisposable
         ];
 
         OnPropertyChanged(nameof(HistoryRangeOptions));
+    }
+
+    private void SetPlanMode(QuotaPlanMode mode)
+    {
+        if (_selectedPlanMode == mode)
+            return;
+
+        _selectedPlanMode = mode;
+        _uiSettings.QuotaPlanMode = mode;
+        _uiSettingsService.Save(_uiSettings);
+        OnPropertyChanged(nameof(IsOptimalPlanMode));
+
+        if (_lastSuccessfulUsage is not null)
+            ApplyUsage(_lastSuccessfulUsage);
     }
 
     private void ResetDisplayTexts()

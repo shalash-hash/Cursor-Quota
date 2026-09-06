@@ -11,10 +11,19 @@ internal static class ModelsBaseLimitResolver
         QuotaSnapshotRepository repository,
         QuotaUsage usage)
     {
-        if (usage.TotalSpendCents is not long spendCents || spendCents <= 0)
-            return await repository.GetFrozenModelsBaseLimitCentsAsync(usage.PeriodStart, usage.PeriodEnd);
+        if (usage.AutoLimitCents is long autoLimitCents && autoLimitCents > 0)
+        {
+            await repository.UpsertFrozenModelsBaseLimitCentsAsync(
+                usage.PeriodStart,
+                usage.PeriodEnd,
+                autoLimitCents);
+            return autoLimitCents;
+        }
 
-        if (usage.FirstPartyUsedPercent < ModelsPercentCap)
+        if (usage.TotalSpendCents is long spendCents
+            && spendCents > 0
+            && usage.FirstPartyUsedPercent > 0.0001
+            && usage.FirstPartyUsedPercent < ModelsPercentCap)
         {
             var estimate = QuotaMonetaryHelper.EstimateLimitCents(spendCents, usage.FirstPartyUsedPercent);
             if (estimate is long liveEstimate && liveEstimate > 0)
@@ -54,6 +63,10 @@ internal static class ModelsBaseLimitResolver
                 at100);
             return at100;
         }
+
+        var previousCycle = await repository.GetLatestPreviousModelsBaseLimitCentsAsync(usage.PeriodStart);
+        if (previousCycle is long previousCents && previousCents > 0)
+            return previousCents;
 
         return null;
     }

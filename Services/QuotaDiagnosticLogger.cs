@@ -24,7 +24,12 @@ public class QuotaDiagnosticLogger
         double apiPercent,
         long? totalSpendCents,
         long? includedSpendCents,
-        long? limitCents)
+        long? limitCents,
+        long? autoSpendCents = null,
+        long? apiSpendCents = null,
+        long? autoLimitCents = null,
+        long? apiLimitCents = null,
+        bool? remainingBonus = null)
     {
         Write(
             $"[{DateTime.Now:HH:mm:ss}] RAW_USAGE " +
@@ -33,7 +38,12 @@ public class QuotaDiagnosticLogger
             $"api={apiPercent.ToString("G17", CultureInfo.InvariantCulture)} " +
             $"total_spend_cents={totalSpendCents?.ToString(CultureInfo.InvariantCulture) ?? "null"} " +
             $"included_spend_cents={includedSpendCents?.ToString(CultureInfo.InvariantCulture) ?? "null"} " +
-            $"limit_cents={limitCents?.ToString(CultureInfo.InvariantCulture) ?? "null"}");
+            $"limit_cents={limitCents?.ToString(CultureInfo.InvariantCulture) ?? "null"} " +
+            $"auto_spend_cents={autoSpendCents?.ToString(CultureInfo.InvariantCulture) ?? "null"} " +
+            $"api_spend_cents={apiSpendCents?.ToString(CultureInfo.InvariantCulture) ?? "null"} " +
+            $"auto_limit_cents={autoLimitCents?.ToString(CultureInfo.InvariantCulture) ?? "null"} " +
+            $"api_limit_cents={apiLimitCents?.ToString(CultureInfo.InvariantCulture) ?? "null"} " +
+            $"remaining_bonus={(remainingBonus is bool value ? value.ToString().ToLowerInvariant() : "null")}");
     }
 
     public void LogSuccessfulFetch(

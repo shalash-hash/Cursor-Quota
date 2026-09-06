@@ -51,6 +51,15 @@
   <data name="DailyTargetLabel" xml:space="preserve">
     <value>Нужно расходовать</value>
   </data>
+  <data name="QuotaPlanModeUniform" xml:space="preserve">
+    <value>Равномерно</value>
+  </data>
+  <data name="QuotaPlanModeOptimal" xml:space="preserve">
+    <value>Оптимально</value>
+  </data>
+  <data name="QuotaPlanModeTooltip" xml:space="preserve">
+    <value>Режим расчёта дневного плана</value>
+  </data>
   <data name="PerDayFormat" xml:space="preserve">
     <value>{0} в день</value>
   </data>

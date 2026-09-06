@@ -31,6 +31,7 @@ At last doc review: **committed and pushed** — reset countdown, network recove
 - **Refresh failure UI:** structured error + reason under «Последнее обновление»; `REFRESH_FAILED` log; `CursorRefreshFailureDescriber`.
 - **Tray menu:** combined base spend; Models bonus line; API as `$used из $limit — X%`.
 - **Daily plan:** fixed 21-calendar-day Models accelerated phase; reserve tail until real reset.
+- **Plan mode:** Optimal (default, hill + reserve) vs Uniform (linear remaining/days for both pools from day 1); persisted in `UiSettings.quotaPlanMode`; instant recalc on toggle.
 - **Auth:** `CursorAuthService` re-reads `state.vscdb` on every refresh.
 - **Bonus quota (Model C):** `totalSpend` = combined actual; `modelsActual = totalSpend − apiUsed`; combined card base-only; `remainingBonus=false` → Unknown.
 - **History UI:** separate stretchable chart cards.

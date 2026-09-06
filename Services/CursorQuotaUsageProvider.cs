@@ -80,7 +80,12 @@ public class CursorQuotaUsageProvider : IQuotaUsageProvider
             usage.PlanUsage.ApiPercentUsed!.Value,
             usage.PlanUsage.TotalSpend,
             usage.PlanUsage.IncludedSpend,
-            usage.PlanUsage.Limit);
+            usage.PlanUsage.Limit,
+            usage.PlanUsage.AutoSpend,
+            usage.PlanUsage.ApiSpend,
+            usage.PlanUsage.AutoLimit,
+            usage.PlanUsage.ApiLimit,
+            usage.PlanUsage.RemainingBonus);
 
         string? planName = null;
         long? includedAmountCents = usage.PlanUsage.Limit;

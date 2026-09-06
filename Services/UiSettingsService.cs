@@ -61,7 +61,8 @@ public sealed class UiSettingsService
                 settings.WindowHeight ?? existing.WindowHeight,
                 MinWindowHeight,
                 DefaultWindowHeight),
-            IsDarkMode = settings.IsDarkMode
+            IsDarkMode = settings.IsDarkMode,
+            QuotaPlanMode = settings.QuotaPlanMode
         };
 
         var json = JsonSerializer.Serialize(sanitized, JsonOptions);

@@ -51,6 +51,15 @@
   <data name="DailyTargetLabel" xml:space="preserve">
     <value>Daily target</value>
   </data>
+  <data name="QuotaPlanModeUniform" xml:space="preserve">
+    <value>Evenly</value>
+  </data>
+  <data name="QuotaPlanModeOptimal" xml:space="preserve">
+    <value>Optimally</value>
+  </data>
+  <data name="QuotaPlanModeTooltip" xml:space="preserve">
+    <value>Daily plan calculation mode</value>
+  </data>
   <data name="PerDayFormat" xml:space="preserve">
     <value>{0} per day</value>
   </data>

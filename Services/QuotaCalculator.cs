@@ -7,7 +7,13 @@ public class QuotaCalculator
 {
     private const double PaceTolerancePercent = 0.1;
 
-    public QuotaCalculationResult Calculate(QuotaUsage usage, DateTime? referenceTime = null)
+    public QuotaCalculationResult Calculate(QuotaUsage usage, DateTime? referenceTime = null) =>
+        Calculate(usage, QuotaPlanMode.Optimal, referenceTime);
+
+    public QuotaCalculationResult Calculate(
+        QuotaUsage usage,
+        QuotaPlanMode mode,
+        DateTime? referenceTime = null)
     {
         var now = referenceTime ?? DateTime.Now;
         var today = now;
@@ -24,7 +30,8 @@ public class QuotaCalculator
         var firstParty = CalculatePool(
             usage.FirstPartyUsedPercent,
             usage.TodayFirstPartyUsedPercent,
-            remaining => DailyPlanCalculator.CalculateCursorModelDailyPlan(
+            remaining => ResolveModelsDailyPlan(
+                mode,
                 remaining,
                 today,
                 cycleStart,
@@ -33,7 +40,8 @@ public class QuotaCalculator
         var api = CalculatePool(
             usage.ApiUsedPercent,
             usage.TodayApiUsedPercent,
-            remaining => DailyPlanCalculator.CalculateApiDailyPlan(
+            remaining => ResolveApiDailyPlan(
+                mode,
                 remaining,
                 today,
                 cycleStart,
@@ -61,6 +69,34 @@ public class QuotaCalculator
             Api = api
         };
     }
+
+    private static double ResolveModelsDailyPlan(
+        QuotaPlanMode mode,
+        double remainingPercent,
+        DateTime today,
+        DateTime cycleStart,
+        DateTime periodEnd) =>
+        mode == QuotaPlanMode.Uniform
+            ? DailyPlanCalculator.CalculateLinearDailyPlan(remainingPercent, today, periodEnd)
+            : DailyPlanCalculator.CalculateCursorModelDailyPlan(
+                remainingPercent,
+                today,
+                cycleStart,
+                periodEnd);
+
+    private static double ResolveApiDailyPlan(
+        QuotaPlanMode mode,
+        double remainingPercent,
+        DateTime today,
+        DateTime cycleStart,
+        DateTime periodEnd) =>
+        mode == QuotaPlanMode.Uniform
+            ? DailyPlanCalculator.CalculateLinearDailyPlan(remainingPercent, today, periodEnd)
+            : DailyPlanCalculator.CalculateApiDailyPlan(
+                remainingPercent,
+                today,
+                cycleStart,
+                periodEnd);
 
     private static PoolCalculation CalculatePool(
         double usedPercent,

@@ -98,19 +98,28 @@ App.xaml.cs (composition root)
 
 **Рекомендация, не лимит.** План пересчитывается: отстаёте — растёт, опережаете — уменьшается.
 
+**Режим расчёта** (`QuotaPlanMode`, переключатель в **верхней строке окна**; сохраняется в `UiSettings.quotaPlanMode`, default **Optimal**):
+
+| Режим | Поведение |
+|-------|-----------|
+| **Optimal** (по умолчанию) | Существующая двухфазная логика ниже (21 день hill + reserve). |
+| **Uniform** | Без фаз: каждый пул — `remainingPercent / remainingDays` до `realResetDate`; Models и API участвуют с первого дня; combined daily USD = models USD + api USD. |
+
+Переключение режима **мгновенно** пересчитывает дневной план из последнего `QuotaUsage` без API refresh. Режим влияет только на target/pace/progress, не на фактический расход.
+
 **Два пула** — Cursor Models и API. **Граница цикла** — `realResetDate` (`usage.PeriodEnd`).
 
 **`acceleratedEndInclusive`** = `min(cycleStart + 20 calendar days, realResetDate)` — последний **включительный** день фазы 1. `cycleStart` — **день 1**; ровно **21 календарный день** ⇒ дни `cycleStart` … `cycleStart + 20 days`.
 
 **Пример** (цикл 06.09 → 06.10): Phase 1 = **06.09–26.09**; Reserve = **с 27.09** до `realResetDate`.
 
-**Фаза 1 — ускоренная** (`today <= acceleratedEndInclusive`):
+**Optimal — фаза 1 (ускоренная)** (`today <= acceleratedEndInclusive`):
 
 - Hill-план **только для Cursor Models** (`CalculateCursorModelDailyPlan` → `CalculateHillDailyPlan`).
 - **API = 0**, не входит в combined plan.
 - `combinedDailyPlan = modelsDailyPlan`.
 
-**Фаза 2 — резерв** (`today > acceleratedEndInclusive` … `realResetDate`):
+**Optimal — фаза 2 (резерв)** (`today > acceleratedEndInclusive` … `realResetDate`):
 
 - Длина хвоста **зависит от реального цикла** (не фиксированные 5 дней).
 - Models и API: линейное распределение остатка до reset через `BillingCycleCalendar.CountRemainingDays` (то же, что `CalculateRemainingPlanDays`).
@@ -130,6 +139,8 @@ App.xaml.cs (composition root)
 ### Usage history
 
 Периодические **snapshots** в SQLite → агрегация по bucket'ам → графики (без изменения расчёта при UI-правках).
+
+**Линия тренда (накопленный %):** сглаживание cubic Bezier (`SmoothCurveGeometry`). Если следующая точка ниже текущей (на Canvas: `next.Y > current.Y`), текущая anchor — **corner** с нулевой плавностью: incoming/outgoing handles прижаты к точке. Это убирает ложный overshoot перед reset-падением; остальные участки сохраняют Catmull-Rom-подобное сглаживание (/6).
 
 ### Network recovery (HTTP 403)
 

@@ -6,6 +6,32 @@
 
 ---
 
+## 2026-09 — Quota plan mode: Optimal vs Uniform
+
+| Field | Value |
+|-------|-------|
+| **Decision** | Два режима дневного плана: **Optimal** (default, существующая 21-day hill + reserve) и **Uniform** (линейное `remaining / remainingDays` для Models и API с первого дня, без фаз). Переключатель в **верхней строке окна**; режим в `UiSettings.quotaPlanMode`; отсутствие поля в старом JSON → Optimal. Смена режима мгновенно пересчитывает target из последнего `QuotaUsage` без API refresh. Режим не меняет фактический расход/history/reset. |
+| **Supersedes** | — (Optimal = прежнее поведение) |
+| **Reason** | Пользовательский выбор между ускоренным hill-планом и равномерным adaptive daily budget |
+| **Affected docs** | MASTER_CONTEXT § Daily plan |
+| **Affected code** | `QuotaPlanMode`, `UiSettings`, `QuotaCalculator`, `MainViewModel`, `MainWindow.xaml`, `Strings*.resx` |
+| **Status** | Active |
+
+---
+
+## 2026-09 — Trend chart: zero smoothing before value drop
+
+| Field | Value |
+|-------|-------|
+| **Decision** | На графике «Уровень использования (тренд)»: если `value[i+1] < value[i]` (Canvas: `next.Y > current.Y`), anchor `P[i]` — corner с нулевыми handles (`control2` входящего сегмента и `control1` исходящего = сама точка). Остальные точки — прежнее Catmull-Rom-подобное сглаживание (/6). |
+| **Supersedes** | Глобальное spline-сглаживание без учёта reset-падений |
+| **Reason** | `control2` точки перед падением зависел от `afterNext`; reset тянул кривую выше реального максимума (ложный горб) |
+| **Affected docs** | MASTER_CONTEXT § Usage history |
+| **Affected code** | `SmoothCurveGeometry`, `UsageHistoryChart` |
+| **Status** | Active |
+
+---
+
 ## 2026-03 — Combined total quota uses dollar sum of pool limits
 
 | Field | Value |
