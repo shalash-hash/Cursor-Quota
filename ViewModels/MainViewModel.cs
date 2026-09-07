@@ -100,7 +100,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     private bool _isStartupEnabled;
     private bool _isDarkMode;
     private bool _isStatisticsView;
-    private UsageHistoryRange _selectedHistoryRange = UsageHistoryRange.Week;
+    private UsageHistoryRange _selectedHistoryRange = UsageHistoryRange.Month;
     private IReadOnlyList<UsageHistoryPoint> _usageHistoryPoints = [];
     private IReadOnlyList<UsageHistoryRangeOption> _historyRangeOptions = [];
     private string _statisticsSummaryText = string.Empty;

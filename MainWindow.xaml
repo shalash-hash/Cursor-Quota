@@ -284,19 +284,20 @@
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource AccentBrush}"
                                        Margin="0,2,0,6"/>
-                            <TextBlock Text="{Binding DailyTodaySpentText}"
+                            <TextBlock Text="{Binding DailyProgressNormLabel}"
                                        Style="{StaticResource CardCenteredText}"
                                        FontSize="11"
                                        FontWeight="SemiBold"
-                                       Foreground="{DynamicResource SpentTodayBrush}"/>
-                            <TextBlock Text="{Binding DailyTodayBreakdownText}"
-                                       Margin="0,1,0,0">
+                                       Foreground="{StaticResource DailyProgressBrush}"/>
+                            <TextBlock Text="{Binding DailyProgressAheadLabel}"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Margin="0,2,0,0">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource CardCenteredText}">
-                                        <Setter Property="FontSize" Value="10"/>
-                                        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource AheadOfScheduleBrush}"/>
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DailyTodayBreakdownText}" Value="">
+                                            <DataTrigger Binding="{Binding DailyProgressAheadLabel}" Value="">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -311,31 +312,30 @@
                                                        FillBrush="{StaticResource DailyProgressBrush}"
                                                        SecondaryBrush="{StaticResource AheadOfScheduleBrush}"/>
                         <StackPanel Grid.Row="2" VerticalAlignment="Top">
-                            <TextBlock Text="{Binding DailyProgressNormLabel}"
-                                       Style="{StaticResource CardCenteredText}"
-                                       FontSize="11"
-                                       FontWeight="SemiBold"
-                                       Foreground="{StaticResource DailyProgressBrush}"/>
-                            <TextBlock Text="{Binding DailyProgressAheadLabel}"
-                                       FontSize="11"
-                                       FontWeight="SemiBold"
-                                       Margin="0,2,0,6">
+                            <TextBlock Text="{Binding DailyTodayBreakdownText}"
+                                       Margin="0,0,0,4">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource CardCenteredText}">
-                                        <Setter Property="Foreground" Value="{StaticResource AheadOfScheduleBrush}"/>
+                                        <Setter Property="FontSize" Value="10"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DailyProgressAheadLabel}" Value="">
+                                            <DataTrigger Binding="{Binding DailyTodayBreakdownText}" Value="">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
+                            <TextBlock Text="{Binding DailyTodaySpentText}"
+                                       Style="{StaticResource CardCenteredText}"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SpentTodayBrush}"/>
                             <TextBlock Text="{Binding DailyYesterdaySpentText}"
                                        Style="{StaticResource CardCenteredText}"
                                        FontSize="11"
                                        Foreground="{DynamicResource SpentYesterdayBrush}"
-                                       Margin="0,0,0,4"/>
+                                       Margin="0,2,0,6"/>
                             <TextBlock Text="{Binding TodayStatusText}"
                                        Style="{StaticResource CardCenteredText}"
                                        FontSize="12"

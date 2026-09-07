@@ -277,26 +277,35 @@ public partial class UsageHistoryChart : UserControl
                 linePoints.Add(new Point(x, y));
             }
 
-            var smoothGeometry = SmoothCurveGeometry.CreateSmoothGeometry(linePoints.ToList());
-            ChartCanvas.Children.Add(new Path
-            {
-                Data = smoothGeometry,
-                Stroke = accentBrush,
-                StrokeThickness = 2.5,
-                Fill = Brushes.Transparent,
-                StrokeLineJoin = PenLineJoin.Round,
-                StrokeStartLineCap = PenLineCap.Round,
-                StrokeEndLineCap = PenLineCap.Round,
-                IsHitTestVisible = false
-            });
+            var linePointsList = linePoints.ToList();
+            var controlPoints = SmoothCurveGeometry.CreateBezierControlPoints(linePointsList);
+            var dropBrush = GetBrush("SpentTodayBrush");
 
-            foreach (var linePoint in linePoints)
+            ChartCanvas.Children.Add(CreateTrendLinePath(
+                SmoothCurveGeometry.CreateSmoothGeometry(linePointsList),
+                accentBrush));
+
+            for (var index = 0; index < linePointsList.Count - 1; index++)
             {
+                if (!SmoothCurveGeometry.IsValueDropOnCanvas(linePointsList[index], linePointsList[index + 1]))
+                    continue;
+
+                ChartCanvas.Children.Add(CreateTrendLinePath(
+                    SmoothCurveGeometry.CreateSegmentGeometry(linePointsList, index, controlPoints),
+                    dropBrush));
+            }
+
+            for (var index = 0; index < linePointsList.Count; index++)
+            {
+                var linePoint = linePointsList[index];
+                var isDropVertex = SmoothCurveGeometry.IsCornerPoint(linePointsList, index);
+                var markerBrush = isDropVertex ? dropBrush : accentBrush;
+
                 ChartCanvas.Children.Add(new Ellipse
                 {
                     Width = 6,
                     Height = 6,
-                    Fill = accentBrush,
+                    Fill = markerBrush,
                     IsHitTestVisible = false
                 });
                 Canvas.SetLeft(ChartCanvas.Children[^1], linePoint.X - 3);
@@ -591,6 +600,19 @@ public partial class UsageHistoryChart : UserControl
         Canvas.SetTop(text, top);
         ChartCanvas.Children.Add(text);
     }
+
+    private static Path CreateTrendLinePath(Geometry geometry, Brush stroke) =>
+        new()
+        {
+            Data = geometry,
+            Stroke = stroke,
+            StrokeThickness = 2.5,
+            Fill = Brushes.Transparent,
+            StrokeLineJoin = PenLineJoin.Round,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            IsHitTestVisible = false
+        };
 
     private static Brush GetBrush(string resourceKey)
     {

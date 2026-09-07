@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Media;
 using Quota.Helpers;
 using Xunit;
 
@@ -22,14 +23,27 @@ public class SmoothCurveGeometryTests
     }
 
     [Fact]
+    public void ResetCase_AnchorAfterDrop_HasZeroLengthHandles()
+    {
+        var points = ValuesToCanvasPoints(94, 97, 100, 0, 5);
+        var controls = SmoothCurveGeometry.CreateBezierControlPoints(points);
+        var resetPoint = points[3];
+
+        Assert.Equal(resetPoint, controls[2].Control2);
+        Assert.Equal(resetPoint, controls[3].Control1);
+    }
+
+    [Fact]
     public void LocalPeak_BeforeDrop_HasZeroLengthHandles()
     {
         var points = ValuesToCanvasPoints(30, 50, 35);
         var controls = SmoothCurveGeometry.CreateBezierControlPoints(points);
         var peak = points[1];
+        var valley = points[2];
 
         Assert.Equal(peak, controls[0].Control2);
         Assert.Equal(peak, controls[1].Control1);
+        Assert.Equal(valley, controls[1].Control2);
     }
 
     [Fact]
@@ -49,14 +63,17 @@ public class SmoothCurveGeometryTests
     }
 
     [Fact]
-    public void DropThenRise_OnlyPeakBeforeDropIsCorner()
+    public void DropThenRise_PeakAndValleyAreCorners()
     {
         var points = ValuesToCanvasPoints(50, 20, 30);
         var controls = SmoothCurveGeometry.CreateBezierControlPoints(points);
         var peak = points[0];
+        var valley = points[1];
 
         Assert.Equal(peak, controls[0].Control1);
-        Assert.NotEqual(peak, controls[1].Control1);
+        Assert.Equal(valley, controls[0].Control2);
+        Assert.Equal(valley, controls[1].Control1);
+        Assert.NotEqual(valley, controls[1].Control2);
     }
 
     [Fact]
@@ -78,6 +95,18 @@ public class SmoothCurveGeometryTests
 
         Assert.True(SmoothCurveGeometry.IsValueDropOnCanvas(higherValue, lowerValue));
         Assert.False(SmoothCurveGeometry.IsValueDropOnCanvas(lowerValue, higherValue));
+    }
+
+    [Fact]
+    public void CreateSegmentGeometry_BuildsGeometryForDropSegment()
+    {
+        var points = ValuesToCanvasPoints(100, 0);
+        var geometry = SmoothCurveGeometry.CreateSegmentGeometry(points, 0);
+
+        Assert.IsType<PathGeometry>(geometry);
+        var pathGeometry = (PathGeometry)geometry;
+        Assert.Single(pathGeometry.Figures);
+        Assert.Single(pathGeometry.Figures[0].Segments);
     }
 
     private static List<Point> ValuesToCanvasPoints(params double[] values)

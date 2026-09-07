@@ -15,6 +15,15 @@ public static class SmoothCurveGeometry
     public static bool IsPointBeforeDrop(IReadOnlyList<Point> points, int index) =>
         index + 1 < points.Count && IsValueDropOnCanvas(points[index], points[index + 1]);
 
+    /// <summary>
+    /// Точка сразу после падения значения (дно reset): входящий сегмент — drop.
+    /// </summary>
+    public static bool IsPointAfterDrop(IReadOnlyList<Point> points, int index) =>
+        index > 0 && IsValueDropOnCanvas(points[index - 1], points[index]);
+
+    public static bool IsCornerPoint(IReadOnlyList<Point> points, int index) =>
+        IsPointBeforeDrop(points, index) || IsPointAfterDrop(points, index);
+
     public static IReadOnlyList<(Point Control1, Point Control2)> CreateBezierControlPoints(
         IReadOnlyList<Point> points)
     {
@@ -30,13 +39,13 @@ public static class SmoothCurveGeometry
             var previous = index == 0 ? current : points[index - 1];
             var afterNext = index + 2 < points.Count ? points[index + 2] : next;
 
-            var control1 = IsPointBeforeDrop(points, index)
+            var control1 = IsCornerPoint(points, index)
                 ? current
                 : new Point(
                     current.X + (next.X - previous.X) / 6,
                     current.Y + (next.Y - previous.Y) / 6);
 
-            var control2 = IsPointBeforeDrop(points, index + 1)
+            var control2 = IsCornerPoint(points, index + 1)
                 ? next
                 : new Point(
                     next.X - (afterNext.X - current.X) / 6,
@@ -46,6 +55,38 @@ public static class SmoothCurveGeometry
         }
 
         return controls;
+    }
+
+    public static Geometry CreateSegmentGeometry(
+        IReadOnlyList<Point> points,
+        int segmentIndex,
+        IReadOnlyList<(Point Control1, Point Control2)>? controlPoints = null)
+    {
+        if (segmentIndex < 0 || segmentIndex >= points.Count - 1)
+            return Geometry.Empty;
+
+        var controls = controlPoints ?? CreateBezierControlPoints(points);
+        var (control1, control2) = controls[segmentIndex];
+        var endPoint = points[segmentIndex + 1];
+
+        var figure = new PathFigure
+        {
+            StartPoint = points[segmentIndex],
+            IsClosed = false
+        };
+
+        if (points.Count == 2 && segmentIndex == 0)
+        {
+            figure.Segments.Add(new LineSegment(endPoint, true));
+        }
+        else
+        {
+            figure.Segments.Add(new BezierSegment(control1, control2, endPoint, true));
+        }
+
+        var geometry = new PathGeometry();
+        geometry.Figures.Add(figure);
+        return geometry;
     }
 
     public static Geometry CreateSmoothGeometry(IReadOnlyList<Point> points)
