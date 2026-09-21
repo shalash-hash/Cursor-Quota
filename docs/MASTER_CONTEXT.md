@@ -102,24 +102,24 @@ App.xaml.cs (composition root)
 
 | Режим | Поведение |
 |-------|-----------|
-| **Optimal** (по умолчанию) | Существующая двухфазная логика ниже (21 день hill + reserve). |
+| **Optimal** (по умолчанию) | Двухфазная логика ниже (21 день ускоренный Models spread + reserve). |
 | **Uniform** | Без фаз: каждый пул — `remainingPercent / remainingDays` до `realResetDate`; Models и API участвуют с первого дня; combined daily USD = models USD + api USD. |
 
 Переключение режима **мгновенно** пересчитывает дневной план из последнего `QuotaUsage` без API refresh. Режим влияет только на target/pace/progress, не на фактический расход.
 
 **Два пула** — Cursor Models и API. **Граница цикла** — `realResetDate` (`usage.PeriodEnd`).
 
-**`acceleratedEndInclusive`** = `min(cycleStart + 20 calendar days, realResetDate)` — последний **включительный** день фазы 1. `cycleStart` — **день 1**; ровно **21 календарный день** ⇒ дни `cycleStart` … `cycleStart + 20 days`.
+**Ускоренная фаза** = **21 полный billing-day bucket** от `cycleStart` (день 1: `[cycleStart, cycleStart+1d)` … день 21: `[cycleStart+20d, cycleStart+21d)`). **`acceleratedPhaseEndExclusive`** = `min(cycleStart + 21 days, realResetDate)` — первый instant Phase 2. **`GetAcceleratedEndInclusive`** — начало 21-го bucket (для подписи «26.09»); для `CountRemainingDays` использовать **exclusive** конец фазы.
 
 **Пример** (цикл 06.09 → 06.10): Phase 1 = **06.09–26.09**; Reserve = **с 27.09** до `realResetDate`.
 
-**Optimal — фаза 1 (ускоренная)** (`today <= acceleratedEndInclusive`):
+**Optimal — фаза 1 (ускоренная)** (`today < acceleratedPhaseEndExclusive`):
 
-- Hill-план **только для Cursor Models** (`CalculateCursorModelDailyPlan` → `CalculateHillDailyPlan`).
+- Адаптивный spread **только для Cursor Models**: `remainingModels / remainingDays` до `acceleratedPhaseEndExclusive` (`CountRemainingDays` с тем же exclusive instant, что и `realResetDate` для фазы 2).
 - **API = 0**, не входит в combined plan.
 - `combinedDailyPlan = modelsDailyPlan`.
 
-**Optimal — фаза 2 (резерв)** (`today > acceleratedEndInclusive` … `realResetDate`):
+**Optimal — фаза 2 (резерв)** (`today >= acceleratedPhaseEndExclusive` … `realResetDate`):
 
 - Длина хвоста **зависит от реального цикла** (не фиксированные 5 дней).
 - Models и API: линейное распределение остатка до reset через `BillingCycleCalendar.CountRemainingDays` (то же, что `CalculateRemainingPlanDays`).

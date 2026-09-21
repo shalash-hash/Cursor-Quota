@@ -6,6 +6,32 @@
 
 ---
 
+## 2026-09 — Accelerated phase plan days: exclusive end at cycleStart + 21 days
+
+| Field | Value |
+|-------|-------|
+| **Decision** | Phase 1 = 21 billing-day buckets. `acceleratedPhaseEndExclusive = min(cycleStart + 21 days, realResetDate)`. `CountRemainingDays(today, phaseEndExclusive)` даёт 21 в момент старта (100/21). Phase 1 пока `today < exclusive`; Phase 2 с `today >= exclusive`. `GetAcceleratedEndInclusive` = начало 21-го bucket (`exclusive − 1 day`), не planEnd для подсчёта дней. |
+| **Supersedes** | Использование `cycleStart + 20 days` как planEnd и `today <= inclusive` для границы фазы |
+| **Reason** | Off-by-one: 20 суток между instant'ами ≠ 21 расходный день; ранний переход в Phase 2 ночью 27.09 до rollover 12:33 |
+| **Affected docs** | MASTER_CONTEXT § Daily plan |
+| **Affected code** | `DailyPlanCalculator` |
+| **Status** | Active |
+
+---
+
+## 2026-09 — Optimal Phase 1: adaptive remaining / accelerated days (not hill curve)
+
+| Field | Value |
+|-------|-------|
+| **Decision** | **Optimal фаза 1:** дневной план Models = `actualModelsRemaining / CalculateRemainingPlanDays(today, acceleratedPhaseEndExclusive, remaining)`. Без hill/dampening. API в фазе 1 = 0. |
+| **Supersedes** | Hill-план в `CalculateHillDailyPlan` для Phase 1 (см. 2026-09 Fixed 21-day phase) |
+| **Reason** | Hill + `(1−progress)²` dampening занижал рекомендацию при недорасходе (Optimal &lt; Uniform); фактический остаток уже содержит недотрату |
+| **Affected docs** | MASTER_CONTEXT § Daily plan |
+| **Affected code** | `DailyPlanCalculator.CalculateCursorModelDailyPlan` |
+| **Status** | Active |
+
+---
+
 ## 2026-09 — Quota plan mode: Optimal vs Uniform
 
 | Field | Value |
