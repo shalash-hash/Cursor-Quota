@@ -12,63 +12,32 @@ public class DailyPlanCalculatorTests
     private static readonly DateTime Reset31Days = new(2025, 11, 6);
 
     [Fact]
-    public void ThirtyDayCycle_AcceleratedEnd_IsLastDayOf21CalendarDayPhase()
+    public void Standard30DayCycle_TailStartsExactly7DaysBeforeReset()
     {
-        var acceleratedEnd = DailyPlanCalculator.GetAcceleratedEndInclusive(CycleStart, Reset30Days);
+        var cycleStart = new DateTime(2026, 9, 6, 12, 33, 42);
+        var reset = new DateTime(2026, 10, 6, 12, 33, 42);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(cycleStart, reset);
 
-        Assert.Equal(CycleStart.AddDays(20), acceleratedEnd);
-        Assert.Equal(new DateTime(2025, 9, 26), acceleratedEnd);
-        Assert.Equal(20, (acceleratedEnd - CycleStart).Days);
+        Assert.Equal(new DateTime(2026, 9, 29, 12, 33, 42), tailStart);
+        Assert.Equal(reset.AddDays(-DailyPlanCalculator.FinalUniformTailDurationDays), tailStart);
     }
 
     [Fact]
-    public void ThirtyOneDayCycle_AcceleratedEnd_IsLastDayOf21CalendarDayPhase()
+    public void ThirtyDayCycle_FinalUniformTail_IsSevenBillingDays()
     {
-        var cycleStart = new DateTime(2025, 10, 6);
-        var acceleratedEnd = DailyPlanCalculator.GetAcceleratedEndInclusive(cycleStart, Reset31Days);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
 
-        Assert.Equal(cycleStart.AddDays(20), acceleratedEnd);
-        Assert.Equal(new DateTime(2025, 10, 26), acceleratedEnd);
-        Assert.Equal(20, (acceleratedEnd - cycleStart).Days);
-    }
-
-    [Fact]
-    public void AcceleratedPhase_Exactly21CalendarDays_SeptemberCycle()
-    {
-        var cycleStart = new DateTime(2026, 9, 6);
-        var reset = new DateTime(2026, 10, 6);
-        var day21 = new DateTime(2026, 9, 26);
-        var day22 = new DateTime(2026, 9, 27);
-
-        Assert.True(DailyPlanCalculator.IsWithinAcceleratedPhase(cycleStart, cycleStart, reset));
-        Assert.True(DailyPlanCalculator.IsWithinAcceleratedPhase(day21, cycleStart, reset));
-        Assert.False(DailyPlanCalculator.IsWithinAcceleratedPhase(day22, cycleStart, reset));
-        Assert.True(DailyPlanCalculator.IsWithinReservePhase(day22, cycleStart, reset));
-        Assert.Equal(day21, DailyPlanCalculator.GetAcceleratedEndInclusive(cycleStart, reset));
-        Assert.Equal(day22, DailyPlanCalculator.GetReservePhaseStart(cycleStart, reset));
-    }
-
-    [Fact]
-    public void AcceleratedPhase_Exactly21CalendarDays_OctoberCycle()
-    {
-        var cycleStart = new DateTime(2026, 10, 6);
-        var reset = new DateTime(2026, 11, 6);
-        var day21 = new DateTime(2026, 10, 26);
-        var day22 = new DateTime(2026, 10, 27);
-
-        Assert.True(DailyPlanCalculator.IsWithinAcceleratedPhase(cycleStart, cycleStart, reset));
-        Assert.True(DailyPlanCalculator.IsWithinAcceleratedPhase(day21, cycleStart, reset));
-        Assert.False(DailyPlanCalculator.IsWithinAcceleratedPhase(day22, cycleStart, reset));
-        Assert.True(DailyPlanCalculator.IsWithinReservePhase(day22, cycleStart, reset));
+        Assert.Equal(new DateTime(2025, 9, 29), tailStart);
+        Assert.Equal(7, DailyPlanCalculator.CalculateRemainingPlanDays(tailStart, Reset30Days, 10));
     }
 
     [Fact]
     public void ScenarioA_StartOfCycle_OptimalExceedsUniform()
     {
-        var phaseEndExclusive = DailyPlanCalculator.GetAcceleratedPhaseEndExclusive(CycleStart, Reset30Days);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
         var optimalModels = DailyPlanCalculator.CalculateCursorModelDailyPlan(100, CycleStart, CycleStart, Reset30Days);
         var uniformModels = DailyPlanCalculator.CalculateLinearDailyPlan(100, CycleStart, Reset30Days);
-        var accelDays = DailyPlanCalculator.CalculateRemainingPlanDays(CycleStart, phaseEndExclusive, 100);
+        var accelDays = DailyPlanCalculator.CalculateRemainingPlanDays(CycleStart, tailStart, 100);
         var expectedOptimal = 100.0 / accelDays;
 
         Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(10, CycleStart, CycleStart, Reset30Days));
@@ -79,13 +48,13 @@ public class DailyPlanCalculatorTests
     [Fact]
     public void ScenarioB_OnOptimalTrajectory_DailyPlanTracksRemainingOverAcceleratedDays()
     {
-        var phaseEndExclusive = DailyPlanCalculator.GetAcceleratedPhaseEndExclusive(CycleStart, Reset30Days);
-        var totalAccelDays = DailyPlanCalculator.CalculateRemainingPlanDays(CycleStart, phaseEndExclusive, 100);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
+        var totalAccelDays = DailyPlanCalculator.CalculateRemainingPlanDays(CycleStart, tailStart, 100);
         var today = CycleStart.AddDays(7);
         var spentFraction = 7.0 / totalAccelDays;
         var remaining = 100 * (1 - spentFraction);
         var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(remaining, today, CycleStart, Reset30Days);
-        var remainingDays = DailyPlanCalculator.CalculateRemainingPlanDays(today, phaseEndExclusive, remaining);
+        var remainingDays = DailyPlanCalculator.CalculateRemainingPlanDays(today, tailStart, remaining);
 
         Assert.Equal(remaining / remainingDays, plan, precision: 6);
     }
@@ -123,8 +92,8 @@ public class DailyPlanCalculatorTests
         const double modelsRemaining = 100 - 25.6088888888889;
         const double apiRemaining = 100.0;
 
-        var phaseEndExclusive = DailyPlanCalculator.GetAcceleratedPhaseEndExclusive(cycleStart, periodEnd);
-        var accelDays = DailyPlanCalculator.CalculateRemainingPlanDays(today, phaseEndExclusive, modelsRemaining);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(cycleStart, periodEnd);
+        var accelDays = DailyPlanCalculator.CalculateRemainingPlanDays(today, tailStart, modelsRemaining);
         var resetDays = DailyPlanCalculator.CalculateRemainingPlanDays(today, periodEnd, modelsRemaining);
 
         var optimalModels = DailyPlanCalculator.CalculateCursorModelDailyPlan(modelsRemaining, today, cycleStart, periodEnd);
@@ -132,11 +101,11 @@ public class DailyPlanCalculatorTests
         var uniformModels = DailyPlanCalculator.CalculateLinearDailyPlan(modelsRemaining, today, periodEnd);
         var uniformApi = DailyPlanCalculator.CalculateLinearDailyPlan(apiRemaining, today, periodEnd);
 
-        Assert.True(DailyPlanCalculator.IsWithinAcceleratedPhase(today, cycleStart, periodEnd));
+        Assert.True(DailyPlanCalculator.IsWithinOptimalAcceleratedPhase(today, cycleStart, periodEnd));
         Assert.Equal(modelsRemaining / accelDays, optimalModels, precision: 4);
         Assert.Equal(0, optimalApi);
         Assert.True(optimalModels > uniformModels);
-        Assert.Equal(6, accelDays);
+        Assert.Equal(8, accelDays);
         Assert.True(resetDays >= 14);
     }
 
@@ -171,35 +140,37 @@ public class DailyPlanCalculatorTests
     }
 
     [Fact]
-    public void ScenarioF_LastAcceleratedDay_UsesAdaptiveModelsPlan()
+    public void ScenarioF_LastOptimalAcceleratedInstant_UsesAdaptiveModelsPlan()
     {
-        var lastHillDay = DailyPlanCalculator.GetAcceleratedEndInclusive(CycleStart, Reset30Days);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
+        var lastAcceleratedInstant = tailStart.AddTicks(-1);
         var remaining = 25.0;
-        var phaseEndExclusive = DailyPlanCalculator.GetAcceleratedPhaseEndExclusive(CycleStart, Reset30Days);
-        var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(remaining, lastHillDay, CycleStart, Reset30Days);
-        var remainingDays = DailyPlanCalculator.CalculateRemainingPlanDays(lastHillDay, phaseEndExclusive, remaining);
+        var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(remaining, lastAcceleratedInstant, CycleStart, Reset30Days);
+        var remainingDays = DailyPlanCalculator.CalculateRemainingPlanDays(lastAcceleratedInstant, tailStart, remaining);
 
-        Assert.True(DailyPlanCalculator.IsWithinAcceleratedPhase(lastHillDay, CycleStart, Reset30Days));
+        Assert.True(DailyPlanCalculator.IsWithinOptimalAcceleratedPhase(lastAcceleratedInstant, CycleStart, Reset30Days));
         Assert.Equal(remaining / remainingDays, plan, precision: 6);
-        Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(10, lastHillDay, CycleStart, Reset30Days));
+        Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(10, lastAcceleratedInstant, CycleStart, Reset30Days));
     }
 
     [Fact]
-    public void ScenarioG_FirstReserveDay_StartsAfterAcceleratedEnd()
+    public void ScenarioG_FirstFinalTailInstant_OptimalEqualsUniform()
     {
-        var phaseEndExclusive = DailyPlanCalculator.GetAcceleratedPhaseEndExclusive(CycleStart, Reset30Days);
-        var reserveStart = DailyPlanCalculator.GetReservePhaseStart(CycleStart, Reset30Days);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
 
-        Assert.Equal(phaseEndExclusive, reserveStart);
-        Assert.Equal(new DateTime(2025, 9, 27), reserveStart);
-        Assert.False(DailyPlanCalculator.IsWithinAcceleratedPhase(reserveStart, CycleStart, Reset30Days));
-        Assert.True(DailyPlanCalculator.IsWithinReservePhase(reserveStart, CycleStart, Reset30Days));
+        Assert.Equal(new DateTime(2025, 9, 29), tailStart);
+        Assert.False(DailyPlanCalculator.IsWithinOptimalAcceleratedPhase(tailStart, CycleStart, Reset30Days));
+        Assert.True(DailyPlanCalculator.IsWithinFinalUniformTail(tailStart, CycleStart, Reset30Days));
+        Assert.Equal(
+            DailyPlanCalculator.CalculateLinearDailyPlan(40, tailStart, Reset30Days),
+            DailyPlanCalculator.CalculateCursorModelDailyPlan(40, tailStart, CycleStart, Reset30Days),
+            precision: 8);
     }
 
     [Fact]
     public void ReservePhase_WithRemainingModels_SpreadsModelsUntilReset()
     {
-        var today = DailyPlanCalculator.GetReservePhaseStart(CycleStart, Reset30Days);
+        var today = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
         var remaining = 20.0;
         var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(remaining, today, CycleStart, Reset30Days);
         var remainingDays = DailyPlanCalculator.CalculateRemainingPlanDays(today, Reset30Days, remaining);
@@ -211,7 +182,7 @@ public class DailyPlanCalculatorTests
     [Fact]
     public void ReservePhase_WithApi_SpreadsApiUntilReset()
     {
-        var today = DailyPlanCalculator.GetReservePhaseStart(CycleStart, Reset30Days);
+        var today = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
         var remaining = 10.0;
         var plan = DailyPlanCalculator.CalculateApiDailyPlan(remaining, today, CycleStart, Reset30Days);
         var remainingDays = DailyPlanCalculator.CalculateRemainingPlanDays(today, Reset30Days, remaining);
@@ -222,7 +193,7 @@ public class DailyPlanCalculatorTests
     [Fact]
     public void ReservePhase_WithModelsAndApi_CombinesBothPlans()
     {
-        var today = DailyPlanCalculator.GetReservePhaseStart(CycleStart, Reset30Days);
+        var today = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
         var cursorRemaining = 12.0;
         var apiRemaining = 8.0;
 
@@ -238,7 +209,7 @@ public class DailyPlanCalculatorTests
     [Fact]
     public void ReservePhase_ModelsDepleted_OnlyApiPlanRemains()
     {
-        var today = DailyPlanCalculator.GetReservePhaseStart(CycleStart, Reset30Days);
+        var today = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
         var apiRemaining = 15.0;
 
         Assert.Equal(0, DailyPlanCalculator.CalculateCursorModelDailyPlan(0, today, CycleStart, Reset30Days));
@@ -248,7 +219,7 @@ public class DailyPlanCalculatorTests
     [Fact]
     public void ReservePhase_ApiDepleted_ModelsStillSpread()
     {
-        var today = DailyPlanCalculator.GetReservePhaseStart(CycleStart, Reset30Days);
+        var today = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
         var modelsRemaining = 9.0;
 
         Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(0, today, CycleStart, Reset30Days));
@@ -258,7 +229,7 @@ public class DailyPlanCalculatorTests
     [Fact]
     public void ReservePhase_BothDepleted_ReturnsZeroPlans()
     {
-        var today = DailyPlanCalculator.GetReservePhaseStart(CycleStart, Reset30Days);
+        var today = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
 
         Assert.Equal(0, DailyPlanCalculator.CalculateCursorModelDailyPlan(0, today, CycleStart, Reset30Days));
         Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(0, today, CycleStart, Reset30Days));
@@ -266,14 +237,13 @@ public class DailyPlanCalculatorTests
     }
 
     [Fact]
-    public void ThirtyDayCycle_ReserveTailLengthDependsOnRealCycleLength()
+    public void ThirtyDayCycle_FinalTailLength_IsAlwaysSevenDaysWhenCycleLongerThanSeven()
     {
-        var acceleratedEndInclusive = DailyPlanCalculator.GetAcceleratedEndInclusive(CycleStart, Reset30Days);
-        var reserveStart = DailyPlanCalculator.GetReservePhaseStart(CycleStart, Reset30Days);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
 
         Assert.Equal(30, (Reset30Days - CycleStart).Days);
-        Assert.Equal(20, (acceleratedEndInclusive - CycleStart).Days);
-        Assert.Equal(9, DailyPlanCalculator.CalculateRemainingPlanDays(reserveStart, Reset30Days, 10));
+        Assert.Equal(23, (tailStart - CycleStart).Days);
+        Assert.Equal(7, DailyPlanCalculator.CalculateRemainingPlanDays(tailStart, Reset30Days, 10));
     }
 
     [Fact]
@@ -287,10 +257,10 @@ public class DailyPlanCalculatorTests
     [Fact]
     public void ReserveSpreadDays_FromFirstReserveDayToReset_UsesBillingCalendarSemantics()
     {
-        var reserveStart = DailyPlanCalculator.GetReservePhaseStart(CycleStart, Reset30Days);
+        var reserveStart = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
 
-        Assert.Equal(9, DailyPlanCalculator.CalculateRemainingPlanDays(reserveStart, Reset30Days, 40));
-        Assert.Equal(8, DailyPlanCalculator.CalculateRemainingPlanDays(reserveStart.AddDays(1), Reset30Days, 40));
+        Assert.Equal(7, DailyPlanCalculator.CalculateRemainingPlanDays(reserveStart, Reset30Days, 40));
+        Assert.Equal(6, DailyPlanCalculator.CalculateRemainingPlanDays(reserveStart.AddDays(1), Reset30Days, 40));
     }
 
     [Fact]
@@ -307,12 +277,11 @@ public class DailyPlanCalculatorTests
     {
         var cycleStart = new DateTime(2025, 1, 30);
         var reset = new DateTime(2025, 2, 28);
-        var acceleratedEndInclusive = DailyPlanCalculator.GetAcceleratedEndInclusive(cycleStart, reset);
-        var reserveStart = DailyPlanCalculator.GetReservePhaseStart(cycleStart, reset);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(cycleStart, reset);
 
-        Assert.Equal(cycleStart.AddDays(20), acceleratedEndInclusive);
-        Assert.True(DailyPlanCalculator.CalculateCursorModelDailyPlan(8, reserveStart, cycleStart, reset) > 0);
-        Assert.True(DailyPlanCalculator.CalculateApiDailyPlan(6, reserveStart, cycleStart, reset) > 0);
+        Assert.Equal(new DateTime(2025, 2, 21), tailStart);
+        Assert.True(DailyPlanCalculator.CalculateCursorModelDailyPlan(8, tailStart, cycleStart, reset) > 0);
+        Assert.True(DailyPlanCalculator.CalculateApiDailyPlan(6, tailStart, cycleStart, reset) > 0);
     }
 
     [Fact]
@@ -320,7 +289,7 @@ public class DailyPlanCalculatorTests
     {
         var cycleStart = new DateTime(2024, 2, 6);
         var reset = new DateTime(2024, 3, 6);
-        var reserveStart = DailyPlanCalculator.GetReservePhaseStart(cycleStart, reset);
+        var reserveStart = DailyPlanCalculator.GetFinalUniformTailStart(cycleStart, reset);
 
         Assert.Equal(29, (reset - cycleStart).Days);
         Assert.True(DailyPlanCalculator.CalculateApiDailyPlan(10, reserveStart, cycleStart, reset) > 0);
@@ -331,28 +300,27 @@ public class DailyPlanCalculatorTests
     {
         var cycleStart = new DateTime(2025, 12, 15);
         var reset = new DateTime(2026, 1, 15);
-        var acceleratedEndInclusive = DailyPlanCalculator.GetAcceleratedEndInclusive(cycleStart, reset);
-        var today = acceleratedEndInclusive.AddDays(-2);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(cycleStart, reset);
+        var today = tailStart.AddDays(-2);
         var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(18, today, cycleStart, reset);
 
         Assert.Equal(31, (reset - cycleStart).Days);
-        Assert.Equal(20, (acceleratedEndInclusive - cycleStart).Days);
+        Assert.Equal(24, (tailStart - cycleStart).Days);
         Assert.True(plan > 0);
     }
 
     [Fact]
-    public void ScenarioH_ShortCycle_AcceleratedEndDoesNotExceedRealReset()
+    public void ScenarioH_ShortCycle_ElevenDays_TailStartsAtDayFive()
     {
         var cycleStart = new DateTime(2025, 9, 1);
         var reset = new DateTime(2025, 9, 12);
-        var phaseEndExclusive = DailyPlanCalculator.GetAcceleratedPhaseEndExclusive(cycleStart, reset);
-        var lastAcceleratedDayStart = DailyPlanCalculator.GetAcceleratedEndInclusive(cycleStart, reset);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(cycleStart, reset);
+        var midCycle = cycleStart.AddDays(5);
 
-        Assert.Equal(reset, phaseEndExclusive);
-        Assert.Equal(reset.AddDays(-1), lastAcceleratedDayStart);
-        Assert.False(DailyPlanCalculator.IsWithinReservePhase(cycleStart.AddDays(5), cycleStart, reset));
-        Assert.True(DailyPlanCalculator.CalculateCursorModelDailyPlan(40, cycleStart.AddDays(5), cycleStart, reset) > 0);
-        Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(10, cycleStart.AddDays(5), cycleStart, reset));
+        Assert.Equal(new DateTime(2025, 9, 5), tailStart);
+        Assert.True(DailyPlanCalculator.IsWithinFinalUniformTail(midCycle, cycleStart, reset));
+        Assert.True(DailyPlanCalculator.CalculateCursorModelDailyPlan(40, midCycle, cycleStart, reset) > 0);
+        Assert.True(DailyPlanCalculator.CalculateApiDailyPlan(10, midCycle, cycleStart, reset) > 0);
     }
 
     [Fact]
@@ -422,60 +390,171 @@ public class DailyPlanCalculatorTests
     private static readonly DateTime CanonReset = new(2026, 10, 6, 12, 33, 42);
 
     [Fact]
-    public void AtCycleStart_Phase1Has21PlanDays()
+    public void AtCycleStart_Phase1PlanDays_UntilSevenDayTailBeforeReset()
     {
-        var phaseEndExclusive = DailyPlanCalculator.GetAcceleratedPhaseEndExclusive(CanonCycleStart, CanonReset);
-        var days = DailyPlanCalculator.CalculateRemainingPlanDays(CanonCycleStart, phaseEndExclusive, 100);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(CanonCycleStart, CanonReset);
+        var days = DailyPlanCalculator.CalculateRemainingPlanDays(CanonCycleStart, tailStart, 100);
 
-        Assert.Equal(21, days);
+        Assert.Equal(23, days);
     }
 
     [Fact]
-    public void AtCycleStart_100PercentRemaining_Yields100Div21()
+    public void AtCycleStart_100PercentRemaining_Yields100DivPhase1Days()
     {
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(CanonCycleStart, CanonReset);
+        var days = DailyPlanCalculator.CalculateRemainingPlanDays(CanonCycleStart, tailStart, 100);
         var plan = DailyPlanCalculator.CalculateCursorModelDailyPlan(100, CanonCycleStart, CanonCycleStart, CanonReset);
 
-        Assert.Equal(100.0 / 21.0, plan, precision: 10);
+        Assert.Equal(100.0 / days, plan, precision: 10);
     }
 
     [Fact]
-    public void Phase1_Day20_Has2PlanDays()
+    public void BillingTimestampBoundary_NotMidnight()
     {
-        var day20Start = CanonCycleStart.AddDays(19);
-        var phaseEndExclusive = DailyPlanCalculator.GetAcceleratedPhaseEndExclusive(CanonCycleStart, CanonReset);
-        var days = DailyPlanCalculator.CalculateRemainingPlanDays(day20Start, phaseEndExclusive, 100);
+        var justBeforeTail = new DateTime(2026, 9, 29, 12, 33, 41);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(CanonCycleStart, CanonReset);
 
-        Assert.Equal(2, days);
+        Assert.Equal(CanonReset.AddDays(-7), tailStart);
+        Assert.True(DailyPlanCalculator.IsWithinOptimalAcceleratedPhase(justBeforeTail, CanonCycleStart, CanonReset));
+        Assert.True(DailyPlanCalculator.IsWithinFinalUniformTail(tailStart, CanonCycleStart, CanonReset));
     }
 
     [Fact]
-    public void Phase1_Day21_Has1PlanDay()
+    public void BeforeSevenDayTail_OptimalDiffersFromUniform()
     {
-        var day21Start = CanonCycleStart.AddDays(20);
-        var phaseEndExclusive = DailyPlanCalculator.GetAcceleratedPhaseEndExclusive(CanonCycleStart, CanonReset);
-        var days = DailyPlanCalculator.CalculateRemainingPlanDays(day21Start, phaseEndExclusive, 100);
+        var today = CanonReset.AddDays(-8);
+        const double modelsRemaining = 50;
+        const double apiRemaining = 100;
 
-        Assert.Equal(1, days);
+        var optimal = DailyPlanCalculator.CalculateCombinedDailyPlan(modelsRemaining, apiRemaining, today, CanonCycleStart, CanonReset);
+        var uniform = DailyPlanCalculator.CalculateLinearDailyPlan(modelsRemaining, today, CanonReset)
+                      + DailyPlanCalculator.CalculateLinearDailyPlan(apiRemaining, today, CanonReset);
+
+        Assert.True(DailyPlanCalculator.IsWithinOptimalAcceleratedPhase(today, CanonCycleStart, CanonReset));
+        Assert.NotEqual(optimal, uniform);
     }
 
     [Fact]
-    public void Phase2_StartsAfterFullDay21()
+    public void ExactlySevenDaysBeforeReset_OptimalEqualsUniform()
     {
-        var phaseEndExclusive = DailyPlanCalculator.GetAcceleratedPhaseEndExclusive(CanonCycleStart, CanonReset);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(CanonCycleStart, CanonReset);
+        const double modelsRemaining = 40;
+        const double apiRemaining = 60;
 
-        Assert.True(DailyPlanCalculator.IsWithinAcceleratedPhase(CanonCycleStart.AddDays(20).AddHours(6), CanonCycleStart, CanonReset));
-        Assert.False(DailyPlanCalculator.IsWithinAcceleratedPhase(phaseEndExclusive, CanonCycleStart, CanonReset));
-        Assert.True(DailyPlanCalculator.IsWithinReservePhase(phaseEndExclusive, CanonCycleStart, CanonReset));
-        Assert.Equal(CanonCycleStart.AddDays(21), phaseEndExclusive);
+        AssertCombinedOptimalMatchesUniform(CanonCycleStart, CanonReset, tailStart, modelsRemaining, apiRemaining);
     }
 
     [Fact]
-    public void Phase1_LateOnBillingDay21_RemainsAcceleratedUntilRollover()
+    public void SixDaysBeforeReset_OptimalEqualsUniform()
     {
-        var beforeRollover = new DateTime(2026, 9, 27, 0, 30, 0);
+        var today = CanonReset.AddDays(-6);
+        AssertCombinedOptimalMatchesUniform(CanonCycleStart, CanonReset, today, 30, 80);
+    }
 
-        Assert.True(DailyPlanCalculator.IsWithinAcceleratedPhase(beforeRollover, CanonCycleStart, CanonReset));
-        Assert.False(DailyPlanCalculator.IsWithinAcceleratedPhase(CanonCycleStart.AddDays(21), CanonCycleStart, CanonReset));
+    [Fact]
+    public void OneDayBeforeReset_OptimalEqualsUniform()
+    {
+        var today = CanonReset.AddDays(-1);
+        AssertCombinedOptimalMatchesUniform(CanonCycleStart, CanonReset, today, 5, 10);
+    }
+
+    [Fact]
+    public void FinalPartialBillingDay_OptimalEqualsUniform()
+    {
+        var morningOfResetDay = new DateTime(2026, 10, 6, 0, 30, 0);
+        AssertCombinedOptimalMatchesUniform(CanonCycleStart, CanonReset, morningOfResetDay, 2, 3);
+    }
+
+    [Fact]
+    public void ResetBoundary_ReturnsCorrectZeroOrExpiredBehavior()
+    {
+        Assert.Equal(0, DailyPlanCalculator.CalculateCursorModelDailyPlan(0, CanonReset, CanonCycleStart, CanonReset));
+        Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(0, CanonReset, CanonCycleStart, CanonReset));
+        Assert.Equal(50, DailyPlanCalculator.CalculateCursorModelDailyPlan(50, CanonReset, CanonCycleStart, CanonReset));
+    }
+
+    [Fact]
+    public void Phase1_Underrun_IncreasesOptimalRecommendation()
+    {
+        var today = CanonCycleStart.AddDays(10);
+        var onPace = DailyPlanCalculator.CalculateCursorModelDailyPlan(50, today, CanonCycleStart, CanonReset);
+        var underspend = DailyPlanCalculator.CalculateCursorModelDailyPlan(70, today, CanonCycleStart, CanonReset);
+
+        Assert.True(underspend > onPace);
+    }
+
+    [Fact]
+    public void Phase1_Overrun_DecreasesOptimalRecommendation()
+    {
+        var today = CanonCycleStart.AddDays(10);
+        var underspend = DailyPlanCalculator.CalculateCursorModelDailyPlan(70, today, CanonCycleStart, CanonReset);
+        var overspend = DailyPlanCalculator.CalculateCursorModelDailyPlan(20, today, CanonCycleStart, CanonReset);
+
+        Assert.True(overspend < underspend);
+    }
+
+    [Fact]
+    public void ApiIsReservedBeforeFinalTail()
+    {
+        var today = CanonCycleStart.AddDays(5);
+        Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(100, today, CanonCycleStart, CanonReset));
+    }
+
+    [Fact]
+    public void ApiParticipatesDuringFinalTail()
+    {
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(CanonCycleStart, CanonReset);
+        var optimalApi = DailyPlanCalculator.CalculateApiDailyPlan(50, tailStart, CanonCycleStart, CanonReset);
+        var uniformApi = DailyPlanCalculator.CalculateLinearDailyPlan(50, tailStart, CanonReset);
+
+        Assert.Equal(uniformApi, optimalApi, precision: 8);
+    }
+
+    [Fact]
+    public void CycleExactly7Days_OptimalEqualsUniformThroughout()
+    {
+        var cycleStart = new DateTime(2026, 3, 1, 12, 0, 0);
+        var reset = cycleStart.AddDays(7);
+        var today = cycleStart.AddDays(3);
+
+        Assert.Equal(cycleStart, DailyPlanCalculator.GetFinalUniformTailStart(cycleStart, reset));
+        AssertCombinedOptimalMatchesUniform(cycleStart, reset, today, 80, 90);
+    }
+
+    [Fact]
+    public void CycleShorterThan7Days_OptimalEqualsUniformThroughout()
+    {
+        var cycleStart = new DateTime(2026, 4, 1, 9, 15, 0);
+        var reset = cycleStart.AddDays(4);
+        var today = cycleStart.AddDays(2);
+
+        Assert.Equal(cycleStart, DailyPlanCalculator.GetFinalUniformTailStart(cycleStart, reset));
+        AssertCombinedOptimalMatchesUniform(cycleStart, reset, today, 55, 66);
+    }
+
+    [Fact]
+    public void ModeSwitch_RecalculatesDisplayedRecommendation()
+    {
+        var calculator = new QuotaCalculator();
+        var usage = new QuotaUsage
+        {
+            PeriodStart = CanonCycleStart,
+            PeriodEnd = CanonReset,
+            FirstPartyUsedPercent = 0,
+            ApiUsedPercent = 0,
+            TotalUsedPercent = 0,
+            ModelsEstimatedLimitUsd = 450m,
+            ApiIncludedAmountUsd = 20m
+        };
+        var beforeTail = CanonCycleStart.AddDays(5);
+        var optimalBefore = calculator.Calculate(usage, QuotaPlanMode.Optimal, beforeTail);
+        var uniformBefore = calculator.Calculate(usage, QuotaPlanMode.Uniform, beforeTail);
+        Assert.NotEqual(optimalBefore.Total.DailyTarget, uniformBefore.Total.DailyTarget);
+
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(CanonCycleStart, CanonReset);
+        var optimalTail = calculator.Calculate(usage, QuotaPlanMode.Optimal, tailStart);
+        var uniformTail = calculator.Calculate(usage, QuotaPlanMode.Uniform, tailStart);
+        Assert.Equal(optimalTail.Total.DailyTarget, uniformTail.Total.DailyTarget, precision: 6);
     }
 
     [Fact]
@@ -483,9 +562,26 @@ public class DailyPlanCalculatorTests
     {
         var today = new DateTime(2026, 9, 21, 13, 51, 14);
         const double modelsRemaining = 74.3911111111111;
-        var phaseEndExclusive = DailyPlanCalculator.GetAcceleratedPhaseEndExclusive(CanonCycleStart, CanonReset);
+        var tailStart = DailyPlanCalculator.GetFinalUniformTailStart(CanonCycleStart, CanonReset);
 
-        Assert.Equal(6, DailyPlanCalculator.CalculateRemainingPlanDays(today, phaseEndExclusive, modelsRemaining));
+        Assert.Equal(8, DailyPlanCalculator.CalculateRemainingPlanDays(today, tailStart, modelsRemaining));
+    }
+
+    private static void AssertCombinedOptimalMatchesUniform(
+        DateTime cycleStart,
+        DateTime reset,
+        DateTime today,
+        double modelsRemaining,
+        double apiRemaining)
+    {
+        var optimalModels = DailyPlanCalculator.CalculateCursorModelDailyPlan(modelsRemaining, today, cycleStart, reset);
+        var optimalApi = DailyPlanCalculator.CalculateApiDailyPlan(apiRemaining, today, cycleStart, reset);
+        var uniformModels = DailyPlanCalculator.CalculateLinearDailyPlan(modelsRemaining, today, reset);
+        var uniformApi = DailyPlanCalculator.CalculateLinearDailyPlan(apiRemaining, today, reset);
+
+        Assert.Equal(uniformModels, optimalModels, precision: 8);
+        Assert.Equal(uniformApi, optimalApi, precision: 8);
+        Assert.Equal(uniformModels + uniformApi, optimalModels + optimalApi, precision: 8);
     }
 }
 
@@ -546,7 +642,7 @@ public class QuotaCalculatorTests
             PeriodEnd = Reset30Days
         };
 
-        var today = DailyPlanCalculator.GetReservePhaseStart(CycleStart, Reset30Days);
+        var today = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
         var result = _calculator.Calculate(usage, today);
         var expectedCombined = DailyPlanCalculator.CalculateCombinedDailyPlan(40, 60, today, CycleStart, Reset30Days);
 
@@ -588,7 +684,7 @@ public class QuotaCalculatorTests
         Assert.Equal(0, optimal.Api.DailyTarget);
         Assert.True(optimalUsd > uniformUsd);
         Assert.InRange(uniformUsd, 23m, 24m);
-        Assert.InRange(optimalUsd, 55m, 57m);
+        Assert.InRange(optimalUsd, 40m, 44m);
     }
 
     [Fact]
@@ -683,7 +779,7 @@ public class QuotaCalculatorTests
             PeriodEnd = Reset30Days
         };
 
-        var today = DailyPlanCalculator.GetReservePhaseStart(CycleStart, Reset30Days);
+        var today = DailyPlanCalculator.GetFinalUniformTailStart(CycleStart, Reset30Days);
         var result = _calculator.Calculate(usage, today);
 
         Assert.Equal(

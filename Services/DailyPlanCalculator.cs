@@ -4,41 +4,27 @@ namespace Quota.Services;
 
 public static class DailyPlanCalculator
 {
-    public const int AcceleratedPhaseCalendarDays = 21;
+    public const int FinalUniformTailDurationDays = 7;
 
     /// <summary>
-    /// Момент окончания ускоренной фазы (exclusive): первый instant Phase 2 / reserve.
-    /// 21 полный billing-day bucket ⇒ cycleStart + 21 days (день 21: [start+20d, start+21d)).
+    /// Начало финального 7-дневного хвоста (inclusive): первый instant, когда Optimal = Uniform.
+    /// <c>max(cycleStart, realResetDate − 7 days)</c> — граница от reset, не от start.
     /// </summary>
-    public static DateTime GetAcceleratedPhaseEndExclusive(DateTime cycleStart, DateTime realResetDate)
+    public static DateTime GetFinalUniformTailStart(DateTime cycleStart, DateTime realResetDate)
     {
-        var candidate = cycleStart.AddDays(AcceleratedPhaseCalendarDays);
-        return candidate < realResetDate ? candidate : realResetDate;
+        var tailStart = realResetDate.AddDays(-FinalUniformTailDurationDays);
+        return tailStart < cycleStart ? cycleStart : tailStart;
     }
 
-    /// <summary>
-    /// Начало 21-го (последнего) billing-day ускоренной фазы; для отображения «день 26.09» при старте 06.09.
-    /// Не использовать как planEnd для CountRemainingDays — нужен <see cref="GetAcceleratedPhaseEndExclusive"/>.
-    /// </summary>
-    public static DateTime GetAcceleratedEndInclusive(DateTime cycleStart, DateTime realResetDate)
+    /// <summary>Фаза 1 Optimal: ускоренный adaptive spread Models до начала финального хвоста.</summary>
+    public static bool IsWithinOptimalAcceleratedPhase(DateTime today, DateTime cycleStart, DateTime realResetDate)
+        => today < GetFinalUniformTailStart(cycleStart, realResetDate);
+
+    /// <summary>Фаза 2 Optimal: линейный spread Models и API до reset (как Uniform).</summary>
+    public static bool IsWithinFinalUniformTail(DateTime today, DateTime cycleStart, DateTime realResetDate)
     {
-        var phaseEndExclusive = GetAcceleratedPhaseEndExclusive(cycleStart, realResetDate);
-        if (phaseEndExclusive <= cycleStart)
-            return phaseEndExclusive;
-
-        return phaseEndExclusive.AddDays(-1);
-    }
-
-    public static DateTime GetReservePhaseStart(DateTime cycleStart, DateTime realResetDate)
-        => GetAcceleratedPhaseEndExclusive(cycleStart, realResetDate);
-
-    public static bool IsWithinAcceleratedPhase(DateTime today, DateTime cycleStart, DateTime realResetDate)
-        => today < GetAcceleratedPhaseEndExclusive(cycleStart, realResetDate);
-
-    public static bool IsWithinReservePhase(DateTime today, DateTime cycleStart, DateTime realResetDate)
-    {
-        var phaseEndExclusive = GetAcceleratedPhaseEndExclusive(cycleStart, realResetDate);
-        return today >= phaseEndExclusive && today < realResetDate;
+        var tailStart = GetFinalUniformTailStart(cycleStart, realResetDate);
+        return today >= tailStart && today < realResetDate;
     }
 
     public static int CalculateRemainingPlanDays(DateTime today, DateTime planEnd, double remainingPercent)
@@ -72,10 +58,10 @@ public static class DailyPlanCalculator
         if (cursorRemaining <= 0)
             return 0;
 
-        var acceleratedPhaseEndExclusive = GetAcceleratedPhaseEndExclusive(cycleStart, realResetDate);
+        var finalUniformTailStart = GetFinalUniformTailStart(cycleStart, realResetDate);
 
-        if (today < acceleratedPhaseEndExclusive)
-            return SpreadRemainingUntilReset(cursorRemaining, today, acceleratedPhaseEndExclusive);
+        if (today < finalUniformTailStart)
+            return SpreadRemainingUntilReset(cursorRemaining, today, finalUniformTailStart);
 
         return SpreadRemainingUntilReset(cursorRemaining, today, realResetDate);
     }
@@ -89,7 +75,7 @@ public static class DailyPlanCalculator
         if (apiRemaining <= 0)
             return 0;
 
-        if (IsWithinAcceleratedPhase(today, cycleStart, realResetDate))
+        if (IsWithinOptimalAcceleratedPhase(today, cycleStart, realResetDate))
             return 0;
 
         return SpreadRemainingUntilReset(apiRemaining, today, realResetDate);

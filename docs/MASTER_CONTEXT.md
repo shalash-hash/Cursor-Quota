@@ -102,35 +102,34 @@ App.xaml.cs (composition root)
 
 | Режим | Поведение |
 |-------|-----------|
-| **Optimal** (по умолчанию) | Двухфазная логика ниже (21 день ускоренный Models spread + reserve). |
+| **Optimal** (по умолчанию) | Двухфазная логика ниже (ускоренный Models spread до финального 7-дневного хвоста + uniform tail). |
 | **Uniform** | Без фаз: каждый пул — `remainingPercent / remainingDays` до `realResetDate`; Models и API участвуют с первого дня; combined daily USD = models USD + api USD. |
 
 Переключение режима **мгновенно** пересчитывает дневной план из последнего `QuotaUsage` без API refresh. Режим влияет только на target/pace/progress, не на фактический расход.
 
 **Два пула** — Cursor Models и API. **Граница цикла** — `realResetDate` (`usage.PeriodEnd`).
 
-**Ускоренная фаза** = **21 полный billing-day bucket** от `cycleStart` (день 1: `[cycleStart, cycleStart+1d)` … день 21: `[cycleStart+20d, cycleStart+21d)`). **`acceleratedPhaseEndExclusive`** = `min(cycleStart + 21 days, realResetDate)` — первый instant Phase 2. **`GetAcceleratedEndInclusive`** — начало 21-го bucket (для подписи «26.09»); для `CountRemainingDays` использовать **exclusive** конец фазы.
+**Финальный uniform-хвост** = **7 полных billing-day** до `realResetDate`. **`finalUniformTailStart`** = `max(cycleStart, realResetDate − 7 days)` — первый instant, когда Optimal и Uniform совпадают. Граница считается **от reset**, не от `cycleStart`.
 
-**Пример** (цикл 06.09 → 06.10): Phase 1 = **06.09–26.09**; Reserve = **с 27.09** до `realResetDate`.
+**Пример** (цикл 06.09 12:33 → 06.10 12:33): Phase 1 = **до 29.09 12:33**; финальный хвост = **с 29.09 12:33** до `realResetDate` (7 billing-day).
 
-**Optimal — фаза 1 (ускоренная)** (`today < acceleratedPhaseEndExclusive`):
+**Optimal — фаза 1 (ускоренная)** (`today < finalUniformTailStart`):
 
-- Адаптивный spread **только для Cursor Models**: `remainingModels / remainingDays` до `acceleratedPhaseEndExclusive` (`CountRemainingDays` с тем же exclusive instant, что и `realResetDate` для фазы 2).
+- Адаптивный spread **только для Cursor Models**: `remainingModels / remainingDays` до `finalUniformTailStart` (`CalculateRemainingPlanDays(today, finalUniformTailStart, remaining)`).
 - **API = 0**, не входит в combined plan.
 - `combinedDailyPlan = modelsDailyPlan`.
 
-**Optimal — фаза 2 (резерв)** (`today >= acceleratedPhaseEndExclusive` … `realResetDate`):
+**Optimal — фаза 2 (финальный uniform-хвост)** (`today >= finalUniformTailStart` … `realResetDate`):
 
-- Длина хвоста **зависит от реального цикла** (не фиксированные 5 дней).
-- Models и API: линейное распределение остатка до reset через `BillingCycleCalendar.CountRemainingDays` (то же, что `CalculateRemainingPlanDays`).
-- `combinedDailyPlan = modelsDailyPlan + apiDailyPlan`.
+- **Та же модель, что Uniform:** Models и API — `remaining / remainingDays` до reset через `BillingCycleCalendar.CountRemainingDays`.
+- `combinedDailyPlan = modelsDailyPlan + apiDailyPlan`; Optimal combined **равен** Uniform combined (намеренно).
 - Если пул исчерпан → его компонент = 0.
 
 **`realResetDate` (`PeriodEnd`):** момент rollover Cursor (время из `billingCycleEnd`). Граница **exclusive** в точный instant; календарный день reset до rollover ещё считается одним расходным днём (`CountRemainingDays` → `Ceiling(periodEnd − now)`).
 
 **Reset countdown (UI):** канонический instant = `billingCycleEnd` Unix ms из `GetCurrentPeriodUsage` (fallback: `GetPlanInfo.planInfo.billingCycleEnd`). Расчёт как в Cursor Settings → Plan & Usage: `remainingMs = billingCycleEnd − UtcNow`. Хранится в `QuotaUsage.PeriodEndUnixMilliseconds`; `PeriodEnd` (local `DateTime`) — для календарной логики. Формат: ≥24h → дни; &lt;24h → часы+минуты; &lt;1h → минуты; &lt;60s → секунды. Локальный таймер: ≥24h — раз в минуту; &lt;24h — раз в секунду. Диагностика: `RESET_TIME_DIAGNOSTIC` в `quota.log`.
 
-**Короткий цикл (< 21 дня):** `acceleratedEndInclusive` ограничен `realResetDate`; резервная фаза может отсутствовать.
+**Короткий цикл (≤ 7 billing-day):** `finalUniformTailStart = cycleStart`; Optimal **совпадает** с Uniform на всём цикле.
 
 **Опережение / отставание:** сравнение факта и плана в **USD** (`DailyTargetProgressCalculator`, `QuotaMonetaryHelper`). Проценты — производное для отображения.
 

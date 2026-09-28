@@ -30,7 +30,7 @@ At last doc review: **committed and pushed** — reset countdown, network recove
 - **Network recovery:** HTTP 403 → transport reset + recovery loop (1s/10s); scheduler pause; `CursorHttpTransport` / `CursorHttpRetry`.
 - **Refresh failure UI:** structured error + reason under «Последнее обновление»; `REFRESH_FAILED` log; `CursorRefreshFailureDescriber`.
 - **Tray menu:** combined base spend; Models bonus line; API as `$used из $limit — X%`.
-- **Daily plan:** fixed 21-calendar-day Models accelerated phase; reserve tail until real reset.
+- **Daily plan:** Optimal Phase 1 = adaptive Models spread until 7 billing-days before reset; final 7-day tail = same as Uniform (Models + API).
 - **Plan mode:** Optimal (default, hill + reserve) vs Uniform (linear remaining/days for both pools from day 1); persisted in `UiSettings.quotaPlanMode`; instant recalc on toggle.
 - **Auth:** `CursorAuthService` re-reads `state.vscdb` on every refresh.
 - **Bonus quota (Model C):** `totalSpend` = combined actual; `modelsActual = totalSpend − apiUsed`; combined card base-only; `remainingBonus=false` → Unknown.
@@ -42,7 +42,7 @@ At last doc review: **committed and pushed** — reset countdown, network recove
 
 Full log: [`DECISIONS_CHANGELOG.md`](./DECISIONS_CHANGELOG.md)
 
-Key invariants: reset countdown from `billingCycleEnd` ms (Cursor DKf formula); combined **base** quota in dollars; billing day from cycle start; 21-day Models phase + variable reserve; `PeriodEnd` exclusive at rollover; daily plan is recommendation; `bonusSpend` (raw) ≠ Models bonus used; `remainingBonus=false` ≠ exhausted; HTTP 403 recovery without spamming API every second on normal path; no tokens in logs/DB/settings.
+Key invariants: reset countdown from `billingCycleEnd` ms (Cursor DKf formula); combined **base** quota in dollars; billing day from cycle start; Optimal accelerated phase until `realReset − 7d` then Optimal = Uniform; `PeriodEnd` exclusive at rollover; daily plan is recommendation; `bonusSpend` (raw) ≠ Models bonus used; `remainingBonus=false` ≠ exhausted; HTTP 403 recovery without spamming API every second on normal path; no tokens in logs/DB/settings.
 
 ---
 

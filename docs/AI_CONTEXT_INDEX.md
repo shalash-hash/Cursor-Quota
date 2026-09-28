@@ -36,7 +36,7 @@
 | **Refresh failure UX** | `MASTER_CONTEXT.md` § Refresh failure diagnostics | `Services/CursorRefreshFailureDescriber.cs`, `ViewModels/MainViewModel.cs` |
 | **Tray display** | `MASTER_CONTEXT.md` § Tray menu | `Helpers/TrayDisplayFormatter.cs`, `Services/TrayIconService.cs` |
 | **Auth (Cursor IDE tokens)** | `MASTER_CONTEXT.md` § Security | `Services/CursorAuthService.cs`, `Services/CursorAuthStateReader.cs` |
-| **Quota & daily plan math** | `DECISIONS_CHANGELOG.md` (2026-09 fixed 21-day phase), `MASTER_CONTEXT.md` § Domain | `Services/QuotaCalculator.cs`, `Services/DailyPlanCalculator.cs`, `Helpers/DailyTargetProgressCalculator.cs` |
+| **Quota & daily plan math** | `DECISIONS_CHANGELOG.md` (2026-09-28 reset-based 7-day tail), `MASTER_CONTEXT.md` § Domain | `Services/QuotaCalculator.cs`, `Services/DailyPlanCalculator.cs`, `Helpers/DailyTargetProgressCalculator.cs` |
 | **Usage history & charts** | `MASTER_CONTEXT.md` § Features | `Services/UsageHistoryService.cs`, `Services/QuotaSnapshotRepository.cs`, `Controls/UsageHistoryChart.*` |
 | **Local persistence** | `MASTER_CONTEXT.md` § Persistence | `Services/QuotaSnapshotRepository.cs`, `Services/UiSettingsService.cs`, `Models/QuotaSnapshot.cs` |
 | **Localization** | `MASTER_CONTEXT.md` § i18n | `Localization/**`, `Resources/Strings*.resx` |

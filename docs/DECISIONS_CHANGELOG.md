@@ -6,6 +6,19 @@
 
 ---
 
+## 2026-09-28 — Optimal final uniform tail: 7 billing-days before reset
+
+| Field | Value |
+|-------|-------|
+| **Decision** | **Финальный хвост** = 7 полных billing-day до `realResetDate`. `finalUniformTailStart = max(cycleStart, realResetDate − 7 days)`. **Phase 1** (`today < finalUniformTailStart`): Optimal Models = `remainingModels / remainingDays` до `finalUniformTailStart`; API = 0. **Phase 2** (`today >= finalUniformTailStart`): Optimal Models и API = те же формулы, что **Uniform** (spread до reset); Optimal combined **равен** Uniform combined. Циклы ≤ 7 дней: Optimal = Uniform на всём цикле. |
+| **Supersedes** | 2026-09 — Accelerated phase plan days (cycleStart + 21 days); 2026-09 — Fixed 21-day Models accelerated phase |
+| **Reason** | Продуктово: ускорять Models до «нормального» 7-дневного резерва перед reset, а не до фиксированного 21-го дня от старта |
+| **Affected docs** | MASTER_CONTEXT § Daily plan, HANDOFF, AI_CONTEXT_INDEX |
+| **Affected code** | `DailyPlanCalculator`, `Quota.Tests/DailyPlanCalculatorTests` |
+| **Status** | Active |
+
+---
+
 ## 2026-09 — Accelerated phase plan days: exclusive end at cycleStart + 21 days
 
 | Field | Value |
@@ -15,7 +28,7 @@
 | **Reason** | Off-by-one: 20 суток между instant'ами ≠ 21 расходный день; ранний переход в Phase 2 ночью 27.09 до rollover 12:33 |
 | **Affected docs** | MASTER_CONTEXT § Daily plan |
 | **Affected code** | `DailyPlanCalculator` |
-| **Status** | Active |
+| **Status** | **Superseded** (см. 2026-09-28 — Optimal final uniform tail) |
 
 ---
 
@@ -23,7 +36,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Decision** | **Optimal фаза 1:** дневной план Models = `actualModelsRemaining / CalculateRemainingPlanDays(today, acceleratedPhaseEndExclusive, remaining)`. Без hill/dampening. API в фазе 1 = 0. |
+| **Decision** | **Optimal фаза 1:** дневной план Models = `actualModelsRemaining / CalculateRemainingPlanDays(today, finalUniformTailStart, remaining)`. Без hill/dampening. API в фазе 1 = 0. (Граница `finalUniformTailStart` — см. 2026-09-28.) |
 | **Supersedes** | Hill-план в `CalculateHillDailyPlan` для Phase 1 (см. 2026-09 Fixed 21-day phase) |
 | **Reason** | Hill + `(1−progress)²` dampening занижал рекомендацию при недорасходе (Optimal &lt; Uniform); фактический остаток уже содержит недотрату |
 | **Affected docs** | MASTER_CONTEXT § Daily plan |
@@ -36,7 +49,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Decision** | Два режима дневного плана: **Optimal** (default, существующая 21-day hill + reserve) и **Uniform** (линейное `remaining / remainingDays` для Models и API с первого дня, без фаз). Переключатель в **верхней строке окна**; режим в `UiSettings.quotaPlanMode`; отсутствие поля в старом JSON → Optimal. Смена режима мгновенно пересчитывает target из последнего `QuotaUsage` без API refresh. Режим не меняет фактический расход/history/reset. |
+| **Decision** | Два режима дневного плана: **Optimal** (default, двухфазная логика с финальным 7-дневным uniform-хвостом) и **Uniform** (линейное `remaining / remainingDays` для Models и API с первого дня, без фаз). Переключатель в **верхней строке окна**; режим в `UiSettings.quotaPlanMode`; отсутствие поля в старом JSON → Optimal. Смена режима мгновенно пересчитывает target из последнего `QuotaUsage` без API refresh. Режим не меняет фактический расход/history/reset. |
 | **Supersedes** | — (Optimal = прежнее поведение) |
 | **Reason** | Пользовательский выбор между ускоренным hill-планом и равномерным adaptive daily budget |
 | **Affected docs** | MASTER_CONTEXT § Daily plan |
@@ -132,7 +145,7 @@
 | **Reason** | Основной расход Models за первые 3 недели; остаток Models + API распределяются в хвосте до reset |
 | **Affected docs** | MASTER_CONTEXT § Daily plan |
 | **Affected code** | `DailyPlanCalculator`, `QuotaCalculator`, tests |
-| **Status** | **Active** |
+| **Status** | **Superseded** (см. 2026-09-28 — Optimal final uniform tail) |
 
 ---
 

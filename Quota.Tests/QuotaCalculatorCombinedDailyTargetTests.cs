@@ -128,7 +128,7 @@ public class QuotaCalculatorCombinedDailyTargetTests
             PeriodEnd = new DateTime(2025, 10, 6)
         };
 
-        var today = DailyPlanCalculator.GetReservePhaseStart(usage.PeriodStart, usage.PeriodEnd);
+        var today = DailyPlanCalculator.GetFinalUniformTailStart(usage.PeriodStart, usage.PeriodEnd);
         var result = _calculator.Calculate(usage, today);
 
         Assert.Equal(0, result.FirstParty.DailyTarget);
@@ -168,7 +168,7 @@ public class QuotaCalculatorCombinedDailyTargetTests
             PeriodEnd = new DateTime(2025, 10, 6)
         };
 
-        var today = DailyPlanCalculator.GetReservePhaseStart(usage.PeriodStart, usage.PeriodEnd);
+        var today = DailyPlanCalculator.GetFinalUniformTailStart(usage.PeriodStart, usage.PeriodEnd);
         var result = _calculator.Calculate(usage, today);
 
         Assert.Equal(0, result.FirstParty.DailyTarget);
