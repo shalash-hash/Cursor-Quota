@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using Quota.Helpers;
 using Quota.Services;
 using Quota.ViewModels;
 
@@ -13,7 +14,6 @@ public partial class MainWindow : Window
     private UiSettingsService? _uiSettingsService;
     private UiSettings? _uiSettings;
     private bool _isHidingToTray;
-    private bool _isStartupTrayHide;
     private DispatcherTimer? _saveBoundsTimer;
 
     public MainWindow(MainViewModel viewModel)
@@ -34,7 +34,8 @@ public partial class MainWindow : Window
 
     public void PrepareInitialTrayHide()
     {
-        _isStartupTrayHide = true;
+        ShowInTaskbar = false;
+        WindowState = WindowState.Normal;
     }
 
     public void SetTrayService(TrayIconService trayIconService)
@@ -50,19 +51,17 @@ public partial class MainWindow : Window
         _isHidingToTray = true;
         try
         {
-            if (!_isStartupTrayHide)
-                SaveWindowBounds();
-
-            ShowInTaskbar = false;
-            Hide();
+            SaveWindowBounds();
 
             if (WindowState == WindowState.Minimized)
                 WindowState = WindowState.Normal;
+
+            ShowInTaskbar = false;
+            Hide();
         }
         finally
         {
             _isHidingToTray = false;
-            _isStartupTrayHide = false;
         }
     }
 
@@ -70,10 +69,15 @@ public partial class MainWindow : Window
     {
         ShowInTaskbar = true;
 
+        if (WindowState == WindowState.Minimized)
+            WindowState = WindowState.Normal;
+
         if (!IsVisible)
             Show();
 
         WindowState = WindowState.Normal;
+
+        NativeWindowHelper.RestoreForeground(this);
         Activate();
         Focus();
     }
@@ -112,7 +116,7 @@ public partial class MainWindow : Window
 
     private void OnWindowSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (_isStartupTrayHide || !IsLoaded || WindowState != WindowState.Normal)
+        if (!IsLoaded || WindowState != WindowState.Normal)
             return;
 
         ScheduleBoundsSave();

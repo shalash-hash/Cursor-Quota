@@ -93,6 +93,89 @@ public static class QuotaMonetaryHelper
     public static decimal? ResolveModelsBaseLimitUsd(QuotaUsage usage) =>
         usage.ModelsBaseLimitUsd ?? usage.ModelsEstimatedLimitUsd;
 
+    public static decimal? ResolveModelsLimitUsdForPlan(QuotaUsage usage) =>
+        ResolveModelsBaseLimitUsd(usage) ?? usage.ModelsEstimatedLimitUsd;
+
+    /// <summary>Лимит включённого API ($20 и т.п.) — из USD или центов snapshot/API.</summary>
+    public static decimal? ResolveApiIncludedLimitUsd(QuotaUsage usage)
+    {
+        if (usage.ApiIncludedAmountUsd is decimal included)
+            return included;
+
+        if (usage.ApiLimitCents is long apiCents && apiCents > 0)
+            return CentsToUsd(apiCents);
+
+        if (usage.LimitCents is long limitCents && limitCents > 0)
+            return CentsToUsd(limitCents);
+
+        return null;
+    }
+
+    public static decimal? ResolveApiRemainingUsd(QuotaUsage usage)
+    {
+        if (usage.ApiRemainingAmountUsd is decimal remaining)
+            return Math.Max(0m, remaining);
+
+        var limit = ResolveApiIncludedLimitUsd(usage);
+        if (limit is null or <= 0m)
+            return null;
+
+        var used = QuotaSpendResolver.ResolveApiUsedUsd(usage) ?? 0m;
+        return Math.Max(0m, limit.Value - used);
+    }
+
+    /// <summary>Остаток Models для дневного плана (% пула), согласованный с USD base remaining.</summary>
+    public static double? ResolveModelsRemainingPercentForPlan(QuotaUsage usage)
+    {
+        var breakdown = QuotaBonusHelper.ResolveModelsBreakdown(usage);
+        if (breakdown.BaseLimitUsd is decimal baseLimit && baseLimit > 0m)
+        {
+            var actualUsd = QuotaSpendResolver.ResolveModelsActualUsedUsd(usage);
+            if (actualUsd is decimal actual && actual > 0.0001m)
+                return (double)(breakdown.BaseRemainingUsd / baseLimit * 100m);
+        }
+
+        var remainingUsd = ResolveModelsRemainingUsd(usage);
+        var limitUsd = ResolveModelsLimitUsdForPlan(usage);
+        if (remainingUsd is decimal rem && limitUsd is decimal lim && lim > 0m)
+            return (double)(rem / lim * 100m);
+
+        return null;
+    }
+
+    /// <summary>Остаток API для дневного плана (% пула), согласованный с USD.</summary>
+    public static double? ResolveApiRemainingPercentForPlan(QuotaUsage usage)
+    {
+        var limit = ResolveApiIncludedLimitUsd(usage);
+        if (limit is null or <= 0m)
+            return null;
+
+        var remainingUsd = ResolveApiRemainingUsd(usage);
+        if (remainingUsd is null)
+            return null;
+
+        return (double)(remainingUsd.Value / limit.Value * 100m);
+    }
+
+    public static string FormatCombinedDailyTargetDisplay(
+        double combinedDailyPercent,
+        double modelsDailyPercent,
+        double apiDailyPercent,
+        decimal? modelsLimitUsd,
+        decimal? apiLimitUsd,
+        int decimalPlaces,
+        CultureInfo culture)
+    {
+        var dailyUsd = ResolveDailyPlanUsd(
+            modelsDailyPercent,
+            apiDailyPercent,
+            modelsLimitUsd,
+            apiLimitUsd);
+        var percentText = PercentageFormatter.Format(combinedDailyPercent, decimalPlaces, culture);
+        var usdText = FormatUsd(dailyUsd, culture);
+        return string.Format(culture, "{0} ({1})", percentText, usdText);
+    }
+
     public static decimal? ResolveModelsRemainingUsd(QuotaUsage usage)
     {
         var modelsActual = QuotaSpendResolver.ResolveModelsActualUsedUsd(usage);
@@ -134,7 +217,7 @@ public static class QuotaMonetaryHelper
 
         var combined = modelsLimit;
 
-        if (usage.ApiIncludedAmountUsd is decimal apiLimit)
+        if (ResolveApiIncludedLimitUsd(usage) is decimal apiLimit)
             combined += apiLimit;
 
         if (usage.ApiKnownBonusAllowanceUsd is decimal apiBonusAllowance)

@@ -40,7 +40,7 @@ public class DailyPlanCalculatorTests
         var accelDays = DailyPlanCalculator.CalculateRemainingPlanDays(CycleStart, tailStart, 100);
         var expectedOptimal = 100.0 / accelDays;
 
-        Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(10, CycleStart, CycleStart, Reset30Days));
+        Assert.True(DailyPlanCalculator.CalculateApiDailyPlan(10, CycleStart, CycleStart, Reset30Days) > 0);
         Assert.Equal(expectedOptimal, optimalModels, precision: 6);
         Assert.True(optimalModels > uniformModels);
     }
@@ -103,19 +103,21 @@ public class DailyPlanCalculatorTests
 
         Assert.True(DailyPlanCalculator.IsWithinOptimalAcceleratedPhase(today, cycleStart, periodEnd));
         Assert.Equal(modelsRemaining / accelDays, optimalModels, precision: 4);
-        Assert.Equal(0, optimalApi);
+        Assert.True(optimalApi > 0);
         Assert.True(optimalModels > uniformModels);
         Assert.Equal(8, accelDays);
         Assert.True(resetDays >= 14);
     }
 
     [Fact]
-    public void EarlyPeriod_ApiQuotaDoesNotAffectCombinedPlan()
+    public void EarlyPeriod_ApiQuotaIncreasesCombinedPlan()
     {
-        var planWithoutApi = DailyPlanCalculator.CalculateCombinedDailyPlan(100, 0, CycleStart, CycleStart, Reset30Days);
-        var planWithApi = DailyPlanCalculator.CalculateCombinedDailyPlan(100, 50, CycleStart, CycleStart, Reset30Days);
+        var modelsPlan = DailyPlanCalculator.CalculateCursorModelDailyPlan(100, CycleStart, CycleStart, Reset30Days);
+        var planWithoutApi = QuotaMonetaryHelper.ResolveCombinedDayPercent(modelsPlan, 0, 450m, 20m);
+        var apiPlan = DailyPlanCalculator.CalculateApiDailyPlan(50, CycleStart, CycleStart, Reset30Days);
+        var planWithApi = QuotaMonetaryHelper.ResolveCombinedDayPercent(modelsPlan, apiPlan, 450m, 20m);
 
-        Assert.Equal(planWithoutApi, planWithApi);
+        Assert.True(planWithApi > planWithoutApi);
     }
 
     [Fact]
@@ -150,7 +152,7 @@ public class DailyPlanCalculatorTests
 
         Assert.True(DailyPlanCalculator.IsWithinOptimalAcceleratedPhase(lastAcceleratedInstant, CycleStart, Reset30Days));
         Assert.Equal(remaining / remainingDays, plan, precision: 6);
-        Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(10, lastAcceleratedInstant, CycleStart, Reset30Days));
+        Assert.True(DailyPlanCalculator.CalculateApiDailyPlan(10, lastAcceleratedInstant, CycleStart, Reset30Days) > 0);
     }
 
     [Fact]
@@ -372,18 +374,16 @@ public class DailyPlanCalculatorTests
     }
 
     [Fact]
-    public void ScenarioJ_Phase1_ApiDailyPlanIsZero_ModelsCarryCombinedTarget()
+    public void ScenarioJ_Phase1_CombinedPlanIncludesModelsAndApi()
     {
         var today = CycleStart.AddDays(4);
         var modelsRemaining = 55.0;
         var apiRemaining = 88.0;
 
-        Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(apiRemaining, today, CycleStart, Reset30Days));
+        Assert.True(DailyPlanCalculator.CalculateApiDailyPlan(apiRemaining, today, CycleStart, Reset30Days) > 0);
         Assert.True(DailyPlanCalculator.CalculateCursorModelDailyPlan(modelsRemaining, today, CycleStart, Reset30Days) > 0);
-        Assert.Equal(
-            DailyPlanCalculator.CalculateCursorModelDailyPlan(modelsRemaining, today, CycleStart, Reset30Days),
-            DailyPlanCalculator.CalculateCombinedDailyPlan(modelsRemaining, apiRemaining, today, CycleStart, Reset30Days),
-            precision: 6);
+        var combined = DailyPlanCalculator.CalculateCombinedDailyPlan(modelsRemaining, apiRemaining, today, CycleStart, Reset30Days);
+        Assert.True(combined > DailyPlanCalculator.CalculateCursorModelDailyPlan(modelsRemaining, today, CycleStart, Reset30Days));
     }
 
     private static readonly DateTime CanonCycleStart = new(2026, 9, 6, 12, 33, 42);
@@ -494,10 +494,12 @@ public class DailyPlanCalculatorTests
     }
 
     [Fact]
-    public void ApiIsReservedBeforeFinalTail()
+    public void ApiParticipatesFromCycleStart_BeforeFinalTail()
     {
         var today = CanonCycleStart.AddDays(5);
-        Assert.Equal(0, DailyPlanCalculator.CalculateApiDailyPlan(100, today, CanonCycleStart, CanonReset));
+        var apiPlan = DailyPlanCalculator.CalculateApiDailyPlan(100, today, CanonCycleStart, CanonReset);
+        var uniformApi = DailyPlanCalculator.CalculateLinearDailyPlan(100, today, CanonReset);
+        Assert.Equal(uniformApi, apiPlan, precision: 8);
     }
 
     [Fact]
@@ -567,6 +569,35 @@ public class DailyPlanCalculatorTests
         Assert.Equal(8, DailyPlanCalculator.CalculateRemainingPlanDays(today, tailStart, modelsRemaining));
     }
 
+    [Fact]
+    public void Uniform_SixDaysBeforeReset_IncludesApiInCombinedDailyUsd()
+    {
+        var cycleStart = new DateTime(2026, 9, 6, 12, 33, 42);
+        var periodEnd = new DateTime(2026, 10, 6, 12, 33, 42);
+        var today = periodEnd.AddDays(-6);
+        var calculator = new QuotaCalculator();
+        var usage = new QuotaUsage
+        {
+            PeriodStart = cycleStart,
+            PeriodEnd = periodEnd,
+            FirstPartyUsedPercent = 96.05,
+            ApiUsedPercent = 0,
+            ModelsEstimatedLimitUsd = 450m,
+            ApiIncludedAmountUsd = 20m,
+            LimitCents = 2000
+        };
+
+        var result = calculator.Calculate(usage, QuotaPlanMode.Uniform, today);
+        var dailyUsd = QuotaMonetaryHelper.ResolveDailyPlanUsd(
+            result.FirstParty.DailyTarget,
+            result.Api.DailyTarget,
+            450m,
+            20m);
+
+        Assert.True(result.Api.DailyTarget > 0);
+        Assert.InRange(dailyUsd, 6.2m, 6.4m);
+    }
+
     private static void AssertCombinedOptimalMatchesUniform(
         DateTime cycleStart,
         DateTime reset,
@@ -597,36 +628,50 @@ public class QuotaCalculatorTests
             TotalUsedPercent = 0,
             FirstPartyUsedPercent = 0,
             ApiUsedPercent = 0,
+            ModelsEstimatedLimitUsd = 450m,
+            ApiIncludedAmountUsd = 20m,
             PeriodStart = CycleStart,
             PeriodEnd = Reset30Days
         };
 
         var result = _calculator.Calculate(usage, CycleStart);
-        var expectedCombined = DailyPlanCalculator.CalculateCombinedDailyPlan(100, 100, CycleStart, CycleStart, Reset30Days);
+        var expectedCombined = QuotaMonetaryHelper.ResolveCombinedDayPercent(
+            result.FirstParty.DailyTarget,
+            result.Api.DailyTarget,
+            450m,
+            20m);
 
         Assert.True(result.FirstParty.DailyTarget > 0);
-        Assert.Equal(0, result.Api.DailyTarget);
+        Assert.True(result.Api.DailyTarget > 0);
         Assert.Equal(expectedCombined, result.Total.DailyTarget, precision: 4);
     }
 
     [Fact]
-    public void Calculate_EarlyPeriod_ApiDoesNotIncreaseTotalDailyTarget()
+    public void Calculate_EarlyPeriod_ApiRemainingIncludedInCombinedDailyTarget()
     {
         var usage = new QuotaUsage
         {
             TotalUsedPercent = 5,
             FirstPartyUsedPercent = 0,
             ApiUsedPercent = 5,
+            ModelsEstimatedLimitUsd = 450m,
+            ApiIncludedAmountUsd = 20m,
             PeriodStart = CycleStart,
             PeriodEnd = Reset30Days
         };
 
         var result = _calculator.Calculate(usage, CycleStart);
-        var expectedCombined = DailyPlanCalculator.CalculateCombinedDailyPlan(100, 95, CycleStart, CycleStart, Reset30Days);
 
         Assert.True(result.FirstParty.DailyTarget > 0);
-        Assert.Equal(0, result.Api.DailyTarget);
-        Assert.Equal(expectedCombined, result.Total.DailyTarget, precision: 4);
+        Assert.True(result.Api.DailyTarget > 0);
+        Assert.Equal(
+            QuotaMonetaryHelper.ResolveCombinedDayPercent(
+                result.FirstParty.DailyTarget,
+                result.Api.DailyTarget,
+                450m,
+                20m),
+            result.Total.DailyTarget,
+            precision: 4);
         Assert.Equal(95, result.Api.RemainingPercent);
     }
 
@@ -681,7 +726,7 @@ public class QuotaCalculatorTests
             usage.ModelsEstimatedLimitUsd,
             usage.ApiIncludedAmountUsd);
 
-        Assert.Equal(0, optimal.Api.DailyTarget);
+        Assert.True(optimal.Api.DailyTarget > 0);
         Assert.True(optimalUsd > uniformUsd);
         Assert.InRange(uniformUsd, 23m, 24m);
         Assert.InRange(optimalUsd, 40m, 44m);
@@ -752,17 +797,21 @@ public class QuotaCalculatorTests
 
         var today = CycleStart.AddDays(7);
         var result = _calculator.Calculate(usage, today);
-        var modelsPlan = DailyPlanCalculator.CalculateCombinedDailyPlan(60, 100, today, CycleStart, Reset30Days);
-        var expectedCombined = QuotaMonetaryHelper.ResolveCombinedDayPercent(
+        var modelsOnlyCombined = QuotaMonetaryHelper.ResolveCombinedDayPercent(
             result.FirstParty.DailyTarget,
             0,
             usage.ModelsEstimatedLimitUsd,
             usage.ApiIncludedAmountUsd);
+        var expectedCombined = QuotaMonetaryHelper.ResolveCombinedDayPercent(
+            result.FirstParty.DailyTarget,
+            result.Api.DailyTarget,
+            usage.ModelsEstimatedLimitUsd,
+            usage.ApiIncludedAmountUsd);
 
         Assert.True(result.FirstParty.DailyTarget > 0);
-        Assert.Equal(0, result.Api.DailyTarget);
+        Assert.True(result.Api.DailyTarget > 0);
         Assert.Equal(expectedCombined, result.Total.DailyTarget, precision: 4);
-        Assert.True(result.Total.DailyTarget < modelsPlan);
+        Assert.True(result.Total.DailyTarget > modelsOnlyCombined);
     }
 
     [Fact]

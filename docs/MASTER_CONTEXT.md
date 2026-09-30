@@ -116,8 +116,8 @@ App.xaml.cs (composition root)
 **Optimal — фаза 1 (ускоренная)** (`today < finalUniformTailStart`):
 
 - Адаптивный spread **только для Cursor Models**: `remainingModels / remainingDays` до `finalUniformTailStart` (`CalculateRemainingPlanDays(today, finalUniformTailStart, remaining)`).
-- **API = 0**, не входит в combined plan.
-- `combinedDailyPlan = modelsDailyPlan`.
+- **API** — линейный spread остатка API до reset (добавочная квота входит в месячный бюджет с первого дня).
+- `combinedDailyPlan = modelsDailyPlan + apiDailyPlan`.
 
 **Optimal — фаза 2 (финальный uniform-хвост)** (`today >= finalUniformTailStart` … `realResetDate`):
 

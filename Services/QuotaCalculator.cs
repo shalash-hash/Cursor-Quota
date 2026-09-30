@@ -27,8 +27,14 @@ public class QuotaCalculator
             periodEnd,
             Math.Max(0, 100 - totalUsedPercent));
 
+        var modelsRemainingForPlan = QuotaMonetaryHelper.ResolveModelsRemainingPercentForPlan(usage)
+            ?? Math.Max(0, 100 - usage.FirstPartyUsedPercent);
+        var apiRemainingForPlan = QuotaMonetaryHelper.ResolveApiRemainingPercentForPlan(usage)
+            ?? Math.Max(0, 100 - usage.ApiUsedPercent);
+
         var firstParty = CalculatePool(
             usage.FirstPartyUsedPercent,
+            modelsRemainingForPlan,
             usage.TodayFirstPartyUsedPercent,
             remaining => ResolveModelsDailyPlan(
                 mode,
@@ -39,6 +45,7 @@ public class QuotaCalculator
 
         var api = CalculatePool(
             usage.ApiUsedPercent,
+            apiRemainingForPlan,
             usage.TodayApiUsedPercent,
             remaining => ResolveApiDailyPlan(
                 mode,
@@ -50,8 +57,8 @@ public class QuotaCalculator
         var combinedDailyTarget = QuotaMonetaryHelper.ResolveCombinedDayPercent(
             firstParty.DailyTarget,
             api.DailyTarget,
-            usage.ModelsEstimatedLimitUsd,
-            usage.ApiIncludedAmountUsd);
+            QuotaMonetaryHelper.ResolveModelsLimitUsdForPlan(usage),
+            QuotaMonetaryHelper.ResolveApiIncludedLimitUsd(usage));
 
         var total = CalculateTotalPool(
             usage,
@@ -100,10 +107,11 @@ public class QuotaCalculator
 
     private static PoolCalculation CalculatePool(
         double usedPercent,
+        double remainingPercentForPlan,
         double todayUsedPercent,
         Func<double, double> dailyPlanFactory)
     {
-        var remaining = Math.Max(0, 100 - usedPercent);
+        var remaining = Math.Max(0, remainingPercentForPlan);
         var dailyTarget = dailyPlanFactory(remaining);
         var todayMetrics = CalculateTodayMetrics(todayUsedPercent, dailyTarget);
         var paceStatus = DeterminePaceStatus(todayUsedPercent, dailyTarget);
@@ -141,8 +149,8 @@ public class QuotaCalculator
             var dailyPlanUsd = QuotaMonetaryHelper.ResolveDailyPlanUsd(
                 modelsDailyTarget,
                 apiDailyTarget,
-                usage.ModelsEstimatedLimitUsd,
-                usage.ApiIncludedAmountUsd);
+                QuotaMonetaryHelper.ResolveModelsLimitUsdForPlan(usage),
+                QuotaMonetaryHelper.ResolveApiIncludedLimitUsd(usage));
             isPlanCompleted = DailyTargetProgressCalculator.IsDailyPlanCompletedFromUsd(
                 todayUsageUsd.Value,
                 dailyPlanUsd);

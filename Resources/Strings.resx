@@ -168,6 +168,15 @@
   <data name="DailyTodayBreakdownBothFormat" xml:space="preserve">
     <value>Models {0} + API {1}</value>
   </data>
+  <data name="DailyPlanTargetBreakdownBothFormat" xml:space="preserve">
+    <value>Daily plan: models {0} + API {1}</value>
+  </data>
+  <data name="DailyPlanTargetBreakdownModelsOnlyFormat" xml:space="preserve">
+    <value>Daily plan: models {0}</value>
+  </data>
+  <data name="DailyPlanTargetBreakdownApiOnlyFormat" xml:space="preserve">
+    <value>Daily plan: API {0}</value>
+  </data>
   <data name="ModelsBonusUsedFormat" xml:space="preserve">
     <value>Bonus used: {0}</value>
   </data>

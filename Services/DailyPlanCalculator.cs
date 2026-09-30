@@ -75,9 +75,7 @@ public static class DailyPlanCalculator
         if (apiRemaining <= 0)
             return 0;
 
-        if (IsWithinOptimalAcceleratedPhase(today, cycleStart, realResetDate))
-            return 0;
-
+        // API (добавочная квота) входит в месячный бюджет с первого дня — равномерно до reset.
         return SpreadRemainingUntilReset(apiRemaining, today, realResetDate);
     }
 

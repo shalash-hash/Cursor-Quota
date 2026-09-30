@@ -168,6 +168,15 @@
   <data name="DailyTodayBreakdownBothFormat" xml:space="preserve">
     <value>Модели {0} + API {1}</value>
   </data>
+  <data name="DailyPlanTargetBreakdownBothFormat" xml:space="preserve">
+    <value>Норма: модели {0} + API {1}</value>
+  </data>
+  <data name="DailyPlanTargetBreakdownModelsOnlyFormat" xml:space="preserve">
+    <value>Норма: модели {0}</value>
+  </data>
+  <data name="DailyPlanTargetBreakdownApiOnlyFormat" xml:space="preserve">
+    <value>Норма: API {0}</value>
+  </data>
   <data name="ModelsBonusUsedFormat" xml:space="preserve">
     <value>Бонус использовано: {0}</value>
   </data>

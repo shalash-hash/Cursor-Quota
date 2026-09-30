@@ -27,7 +27,7 @@ public class QuotaPlanModeTests
     }
 
     [Fact]
-    public void OptimalEarlyCycle_ModelsHill_ApiZero()
+    public void OptimalEarlyCycle_IncludesApiInDailyPlan()
     {
         var cycleStart = new DateTime(2026, 9, 6, 12, 33, 42);
         var periodEnd = new DateTime(2026, 10, 6, 12, 33, 42);
@@ -35,7 +35,7 @@ public class QuotaPlanModeTests
 
         var result = _calculator.Calculate(usage, QuotaPlanMode.Optimal, cycleStart);
 
-        Assert.Equal(0, result.Api.DailyTarget);
+        Assert.True(result.Api.DailyTarget > 0);
         Assert.True(result.FirstParty.DailyTarget > 0);
         Assert.Equal(
             QuotaMonetaryHelper.ResolveCombinedDayPercent(

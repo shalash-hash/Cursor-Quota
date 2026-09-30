@@ -6,6 +6,19 @@
 
 ---
 
+## 2026-09-30 — API included in daily plan from cycle start
+
+| Field | Value |
+|-------|-------|
+| **Decision** | Добавочная API-квота входит в месячный бюджет дневной нормы с первого дня: `CalculateApiDailyPlan` всегда линейно до reset (и в Optimal, и в Uniform). Combined daily USD/percent = Models + API. UI: подпись «Норма: модели $X + API $Y». Лимит API резолвится из `ApiIncludedAmountUsd` или `LimitCents`/`ApiLimitCents`. |
+| **Supersedes** | Optimal Phase 1: API = 0 до финального хвоста |
+| **Reason** | Пользователь ожидает полную месячную квоту ($450 + $20) в дневной рекомендации; UI показывал только сегодняшний расход Models |
+| **Affected docs** | MASTER_CONTEXT § Daily plan |
+| **Affected code** | `DailyPlanCalculator`, `QuotaCalculator`, `QuotaMonetaryHelper`, `MainViewModel`, `MainWindow.xaml` |
+| **Status** | Active |
+
+---
+
 ## 2026-09-28 — Optimal final uniform tail: 7 billing-days before reset
 
 | Field | Value |

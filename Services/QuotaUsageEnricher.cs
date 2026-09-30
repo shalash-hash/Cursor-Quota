@@ -51,6 +51,21 @@ public sealed class QuotaUsageEnricher
             usage.ModelsEstimatedRemainingUsd = modelsBaseRemainingUsd;
             usage.BonusSource = bonusSource;
             usage.BonusAvailability = bonusAvailability;
+
+            if (usage.ApiIncludedAmountUsd is null)
+            {
+                if (source.LimitCents is long limitCents && limitCents > 0)
+                    usage.ApiIncludedAmountUsd = QuotaMonetaryHelper.CentsToUsd(limitCents);
+                else if (source.ApiLimitCents is long apiCents && apiCents > 0)
+                    usage.ApiIncludedAmountUsd = QuotaMonetaryHelper.CentsToUsd(apiCents);
+            }
+
+            if (usage.ApiRemainingAmountUsd is null
+                && usage.ApiIncludedAmountUsd is decimal apiLimit
+                && QuotaSpendResolver.ResolveApiUsedUsd(source) is decimal apiUsed)
+            {
+                usage.ApiRemainingAmountUsd = Math.Max(0m, apiLimit - apiUsed);
+            }
         });
 
         var totalPercent = QuotaMonetaryHelper.ResolveCombinedUsedPercent(enriched)

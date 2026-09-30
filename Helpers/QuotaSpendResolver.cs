@@ -170,7 +170,7 @@ public static class QuotaSpendResolver
         if (usage.TodayApiSpendCents is long apiCents)
             return QuotaMonetaryHelper.CentsToUsd(apiCents);
 
-        if (usage.ApiIncludedAmountUsd is not decimal apiLimit)
+        if (QuotaMonetaryHelper.ResolveApiIncludedLimitUsd(usage) is not decimal apiLimit)
             return null;
 
         return QuotaMonetaryHelper.PercentToUsd(usage.TodayApiUsedPercent, apiLimit);

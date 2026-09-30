@@ -49,8 +49,6 @@ public partial class App : WpfApplication
 
         MainWindow = mainWindow;
         mainWindow.PrepareInitialTrayHide();
-        mainWindow.Show();
-        mainWindow.HideToTray();
 
         await _viewModel.InitializeAsync();
     }

@@ -283,7 +283,21 @@
                                        FontSize="22"
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource AccentBrush}"
-                                       Margin="0,2,0,6"/>
+                                       Margin="0,2,0,4"/>
+                            <TextBlock Text="{Binding DailyPlanTargetBreakdownText}"
+                                       Margin="0,0,0,6">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource CardCenteredText}">
+                                        <Setter Property="FontSize" Value="10"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DailyPlanTargetBreakdownText}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                             <TextBlock Text="{Binding DailyProgressNormLabel}"
                                        Style="{StaticResource CardCenteredText}"
                                        FontSize="11"

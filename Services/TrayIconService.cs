@@ -131,21 +131,7 @@ public sealed class TrayIconService : IDisposable
         Application.Current.Dispatcher.Invoke(() =>
         {
             if (_mainWindow is MainWindow mainWindow)
-            {
                 mainWindow.ShowFromTray();
-                return;
-            }
-
-            _mainWindow.ShowInTaskbar = true;
-
-            if (!_mainWindow.IsVisible)
-                _mainWindow.Show();
-
-            if (_mainWindow.WindowState == WindowState.Minimized)
-                _mainWindow.WindowState = WindowState.Normal;
-
-            _mainWindow.Activate();
-            _mainWindow.Focus();
         });
     }
 

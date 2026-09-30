@@ -189,7 +189,7 @@ public class ModelsBaseLimitResolverTests
         var result = new QuotaCalculator().Calculate(usage);
 
         Assert.True(result.FirstParty.DailyTarget > 0);
-        Assert.Equal(0, result.Api.DailyTarget);
+        Assert.True(result.Api.DailyTarget > 0);
         Assert.True(result.Total.DailyTarget > 0);
     }
 
