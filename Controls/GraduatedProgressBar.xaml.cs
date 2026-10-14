@@ -45,6 +45,20 @@ public partial class GraduatedProgressBar : UserControl
             typeof(GraduatedProgressBar),
             new PropertyMetadata(null, OnSecondaryBrushChanged));
 
+    public static readonly DependencyProperty PlanMarkerValueProperty =
+        DependencyProperty.Register(
+            nameof(PlanMarkerValue),
+            typeof(double),
+            typeof(GraduatedProgressBar),
+            new PropertyMetadata(double.NaN, OnLayoutPropertyChanged));
+
+    public static readonly DependencyProperty PlanMarkerToolTipProperty =
+        DependencyProperty.Register(
+            nameof(PlanMarkerToolTip),
+            typeof(object),
+            typeof(GraduatedProgressBar),
+            new PropertyMetadata(null));
+
     public GraduatedProgressBar()
     {
         InitializeComponent();
@@ -80,6 +94,18 @@ public partial class GraduatedProgressBar : UserControl
     {
         get => (Brush?)GetValue(SecondaryBrushProperty);
         set => SetValue(SecondaryBrushProperty, value);
+    }
+
+    public double PlanMarkerValue
+    {
+        get => (double)GetValue(PlanMarkerValueProperty);
+        set => SetValue(PlanMarkerValueProperty, value);
+    }
+
+    public object? PlanMarkerToolTip
+    {
+        get => GetValue(PlanMarkerToolTipProperty);
+        set => SetValue(PlanMarkerToolTipProperty, value);
     }
 
     private static void OnLayoutPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -133,6 +159,22 @@ public partial class GraduatedProgressBar : UserControl
                 ? new CornerRadius(6)
                 : new CornerRadius(6, 0, 0, 6);
         }
+
+        UpdatePlanMarker(innerWidth, maximum);
+    }
+
+    private void UpdatePlanMarker(double innerWidth, double maximum)
+    {
+        if (double.IsNaN(PlanMarkerValue) || PlanMarkerValue < 0)
+        {
+            PlanMarker.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var markerPercent = Math.Clamp(PlanMarkerValue, 0, maximum) / maximum;
+        var x = 1 + innerWidth * markerPercent;
+        PlanMarker.Margin = new Thickness(Math.Max(0, x - 1), 0, 0, 0);
+        PlanMarker.Visibility = Visibility.Visible;
     }
 
     private void ApplyFillBrush(Border target, Brush? brush)

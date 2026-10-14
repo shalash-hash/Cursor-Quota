@@ -137,6 +137,44 @@ public static class DailyTargetProgressCalculator
             - QuotaMonetaryHelper.PercentToUsd(planPercent, limitUsd.Value);
     }
 
+    /// <summary>
+    /// Отклонение от планового cumulative на шкале общей квоты (0–100%): |факт% − план%| в п.п., не % от плановой суммы.
+    /// </summary>
+    public static DailyPlanDelta CalculateCyclePlanPaceDelta(
+        double actualUsedPercent,
+        double plannedUsedPercent,
+        decimal? actualUsedUsd,
+        decimal? plannedUsedUsd)
+    {
+        var absolutePercentPoints = actualUsedPercent - plannedUsedPercent;
+        decimal? deltaUsd = null;
+        if (actualUsedUsd is decimal actual && plannedUsedUsd is decimal planned)
+            deltaUsd = actual - planned;
+
+        var onPlanByPercent = Math.Abs(absolutePercentPoints) < 1e-9;
+        var onPlanByUsd = deltaUsd is null || Math.Abs(deltaUsd.Value) < UsdEqualityEpsilon;
+        if (onPlanByPercent && onPlanByUsd)
+            return new DailyPlanDelta { Kind = DailyPlanDeltaKind.OnPlan };
+
+        var displayPercentPoints = Math.Abs(absolutePercentPoints);
+        if (absolutePercentPoints > 0 || deltaUsd is decimal usd && usd > UsdEqualityEpsilon)
+        {
+            return new DailyPlanDelta
+            {
+                Kind = DailyPlanDeltaKind.Ahead,
+                RelativeDeltaPercent = displayPercentPoints,
+                AbsoluteDeltaPercent = absolutePercentPoints
+            };
+        }
+
+        return new DailyPlanDelta
+        {
+            Kind = DailyPlanDeltaKind.Behind,
+            RelativeDeltaPercent = displayPercentPoints,
+            AbsoluteDeltaPercent = absolutePercentPoints
+        };
+    }
+
     public static string FormatRelativeDeltaWithUsd(
         double relativeDeltaPercent,
         decimal? deltaUsd,

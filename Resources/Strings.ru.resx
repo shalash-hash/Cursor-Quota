@@ -93,6 +93,12 @@
   <data name="BehindDailyPlanFormat" xml:space="preserve">
     <value>Отставание от дневного плана: {0}</value>
   </data>
+  <data name="AheadOfCyclePlanFormat" xml:space="preserve">
+    <value>Опережение месячного плана: {0}</value>
+  </data>
+  <data name="BehindCyclePlanFormat" xml:space="preserve">
+    <value>Отставание от месячного плана: {0}</value>
+  </data>
   <data name="CursorModelsLabel" xml:space="preserve">
     <value>Модели Cursor</value>
   </data>
@@ -170,6 +176,9 @@
   </data>
   <data name="DailyPlanTargetBreakdownBothFormat" xml:space="preserve">
     <value>Норма: модели {0} + API {1}</value>
+  </data>
+  <data name="TotalPlanMarkerToolTipFormat" xml:space="preserve">
+    <value>По плану на сегодня: {0} ({1})</value>
   </data>
   <data name="DailyPlanTargetBreakdownModelsOnlyFormat" xml:space="preserve">
     <value>Норма: модели {0}</value>

@@ -1,4 +1,5 @@
 using Quota.Helpers;
+using Quota.Models;
 
 namespace Quota.Services;
 
@@ -100,4 +101,117 @@ public static class DailyPlanCalculator
 
         return remainingPercent / remainingPlanDays;
     }
+
+    /// <summary>
+    /// Плановый cumulative combined used на текущую billing-дату: симуляция плана с 100% остатка
+    /// по каждому пулу от начала цикла, с учётом Uniform / Optimal и финального 7-дневного хвоста.
+    /// </summary>
+    public static PlannedCumulativeUsage CalculatePlannedCumulativeUsage(
+        QuotaPlanMode mode,
+        DateTime now,
+        DateTime cycleStart,
+        DateTime periodEnd,
+        decimal? modelsLimitUsd,
+        decimal? apiLimitUsd)
+    {
+        if (modelsLimitUsd is not decimal modelsLimit || modelsLimit <= 0m)
+            return new PlannedCumulativeUsage(0, null);
+
+        var apiLimit = apiLimitUsd ?? 0m;
+        var combinedLimit = modelsLimit + (apiLimit > 0m ? apiLimit : 0m);
+        if (combinedLimit <= 0m)
+            return new PlannedCumulativeUsage(0, null);
+
+        if (now < cycleStart)
+            return new PlannedCumulativeUsage(0, 0m);
+
+        if (now >= periodEnd)
+            return new PlannedCumulativeUsage(100, combinedLimit);
+
+        var todayBillingStart = BillingCycleCalendar.GetDayStart(now, cycleStart);
+        var modelsPlanRemaining = 100d;
+        var apiPlanRemaining = apiLimit > 0m ? 100d : 0d;
+        var day = BillingCycleCalendar.GetDayStart(cycleStart, cycleStart);
+
+        while (day < todayBillingStart && day < periodEnd)
+        {
+            ApplyPlannedDaySpend(
+                mode,
+                ref modelsPlanRemaining,
+                ref apiPlanRemaining,
+                day,
+                cycleStart,
+                periodEnd,
+                apiLimit > 0m);
+            day = day.AddDays(1);
+        }
+
+        if (now > todayBillingStart && todayBillingStart < periodEnd)
+        {
+            ApplyPlannedDaySpend(
+                mode,
+                ref modelsPlanRemaining,
+                ref apiPlanRemaining,
+                todayBillingStart,
+                cycleStart,
+                periodEnd,
+                apiLimit > 0m);
+        }
+
+        var modelsUsedPoolPercent = 100d - modelsPlanRemaining;
+        var apiUsedPoolPercent = apiPlanRemaining > 0 ? 100d - apiPlanRemaining : 0d;
+        var usedUsd = QuotaMonetaryHelper.PercentToUsd(modelsUsedPoolPercent, modelsLimit)
+            + (apiLimit > 0m
+                ? QuotaMonetaryHelper.PercentToUsd(apiUsedPoolPercent, apiLimit)
+                : 0m);
+        var usedPercent = (double)(usedUsd / combinedLimit * 100m);
+        usedPercent = Math.Clamp(usedPercent, 0, 100);
+
+        return new PlannedCumulativeUsage(usedPercent, usedUsd);
+    }
+
+    private static void ApplyPlannedDaySpend(
+        QuotaPlanMode mode,
+        ref double modelsPlanRemaining,
+        ref double apiPlanRemaining,
+        DateTime billingDayStart,
+        DateTime cycleStart,
+        DateTime periodEnd,
+        bool includeApiPool)
+    {
+        var modelsDaily = ResolveModelsDailyPlanForMode(
+            mode,
+            modelsPlanRemaining,
+            billingDayStart,
+            cycleStart,
+            periodEnd);
+        var apiDaily = includeApiPool && apiPlanRemaining > 0
+            ? ResolveApiDailyPlanForMode(mode, apiPlanRemaining, billingDayStart, cycleStart, periodEnd)
+            : 0d;
+
+        modelsPlanRemaining = Math.Max(0, modelsPlanRemaining - modelsDaily);
+        apiPlanRemaining = Math.Max(0, apiPlanRemaining - apiDaily);
+    }
+
+    private static double ResolveModelsDailyPlanForMode(
+        QuotaPlanMode mode,
+        double remainingPercent,
+        DateTime today,
+        DateTime cycleStart,
+        DateTime periodEnd) =>
+        mode == QuotaPlanMode.Uniform
+            ? CalculateLinearDailyPlan(remainingPercent, today, periodEnd)
+            : CalculateCursorModelDailyPlan(remainingPercent, today, cycleStart, periodEnd);
+
+    private static double ResolveApiDailyPlanForMode(
+        QuotaPlanMode mode,
+        double remainingPercent,
+        DateTime today,
+        DateTime cycleStart,
+        DateTime periodEnd) =>
+        mode == QuotaPlanMode.Uniform
+            ? CalculateLinearDailyPlan(remainingPercent, today, periodEnd)
+            : CalculateApiDailyPlan(remainingPercent, today, cycleStart, periodEnd);
 }
+
+public readonly record struct PlannedCumulativeUsage(double UsedPercent, decimal? UsedUsd);

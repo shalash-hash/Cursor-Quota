@@ -68,12 +68,24 @@ public class QuotaCalculator
             firstParty.DailyTarget,
             api.DailyTarget);
 
+        var modelsLimitUsd = QuotaMonetaryHelper.ResolveModelsLimitUsdForPlan(usage);
+        var apiLimitUsd = QuotaMonetaryHelper.ResolveApiIncludedLimitUsd(usage);
+        var plannedCumulative = DailyPlanCalculator.CalculatePlannedCumulativeUsage(
+            mode,
+            today,
+            cycleStart,
+            periodEnd,
+            modelsLimitUsd,
+            apiLimitUsd);
+
         return new QuotaCalculationResult
         {
             RemainingDays = remainingDays,
             Total = total,
             FirstParty = firstParty,
-            Api = api
+            Api = api,
+            PlannedCumulativeUsedPercent = plannedCumulative.UsedPercent,
+            PlannedCumulativeUsedUsd = plannedCumulative.UsedUsd
         };
     }
 

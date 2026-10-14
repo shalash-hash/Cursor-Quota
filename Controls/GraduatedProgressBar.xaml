@@ -61,5 +61,15 @@
                 </LinearGradientBrush>
             </Border.Background>
         </Border>
+
+        <Rectangle x:Name="PlanMarker"
+                   Panel.ZIndex="4"
+                   Width="2"
+                   Height="8"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Fill="#E53935"
+                   Visibility="Collapsed"
+                   ToolTip="{Binding PlanMarkerToolTip, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
     </Grid>
 </UserControl>

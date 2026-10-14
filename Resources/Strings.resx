@@ -93,6 +93,12 @@
   <data name="BehindDailyPlanFormat" xml:space="preserve">
     <value>Behind daily target: {0}</value>
   </data>
+  <data name="AheadOfCyclePlanFormat" xml:space="preserve">
+    <value>Ahead of monthly plan: {0}</value>
+  </data>
+  <data name="BehindCyclePlanFormat" xml:space="preserve">
+    <value>Behind monthly plan: {0}</value>
+  </data>
   <data name="CursorModelsLabel" xml:space="preserve">
     <value>Cursor Models</value>
   </data>
@@ -170,6 +176,9 @@
   </data>
   <data name="DailyPlanTargetBreakdownBothFormat" xml:space="preserve">
     <value>Daily plan: models {0} + API {1}</value>
+  </data>
+  <data name="TotalPlanMarkerToolTipFormat" xml:space="preserve">
+    <value>Planned usage for today: {0} ({1})</value>
   </data>
   <data name="DailyPlanTargetBreakdownModelsOnlyFormat" xml:space="preserve">
     <value>Daily plan: models {0}</value>

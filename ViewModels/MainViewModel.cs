@@ -37,6 +37,8 @@ public class MainViewModel : ViewModelBase, IDisposable
 
     private string _totalUsedPercentText = "—";
     private double _totalProgressValue;
+    private double _totalPlanMarkerValue = double.NaN;
+    private string? _totalPlanMarkerToolTip;
     private string _totalProgressLabel = "— / 100";
     private string _totalRemainingText = "—";
     private string _totalSpendText = "—";
@@ -62,6 +64,8 @@ public class MainViewModel : ViewModelBase, IDisposable
     private double _dailyAheadSegmentWeight;
     private string _dailyProgressNormLabel = string.Empty;
     private string _dailyProgressAheadLabel = string.Empty;
+    private string _cyclePlanPaceText = string.Empty;
+    private bool _isCyclePlanPaceAhead;
 
     private string _firstPartyUsedPercentText = "—";
     private string _firstPartySpendText = string.Empty;
@@ -282,6 +286,18 @@ public class MainViewModel : ViewModelBase, IDisposable
         private set => SetProperty(ref _totalProgressLabel, value);
     }
 
+    public double TotalPlanMarkerValue
+    {
+        get => _totalPlanMarkerValue;
+        private set => SetProperty(ref _totalPlanMarkerValue, value);
+    }
+
+    public string? TotalPlanMarkerToolTip
+    {
+        get => _totalPlanMarkerToolTip;
+        private set => SetProperty(ref _totalPlanMarkerToolTip, value);
+    }
+
     public string TotalRemainingText
     {
         get => _totalRemainingText;
@@ -361,6 +377,18 @@ public class MainViewModel : ViewModelBase, IDisposable
     {
         get => _todayStatusText;
         private set => SetProperty(ref _todayStatusText, value);
+    }
+
+    public string CyclePlanPaceText
+    {
+        get => _cyclePlanPaceText;
+        private set => SetProperty(ref _cyclePlanPaceText, value);
+    }
+
+    public bool IsCyclePlanPaceAhead
+    {
+        get => _isCyclePlanPaceAhead;
+        private set => SetProperty(ref _isCyclePlanPaceAhead, value);
     }
 
     public string TodayOverageText
@@ -838,6 +866,12 @@ public class MainViewModel : ViewModelBase, IDisposable
 
         TotalUsedPercentText = PercentageFormatter.Format(combined.UsedPercent, digits, culture);
         TotalProgressValue = Math.Max(0, combined.UsedPercent);
+        TotalPlanMarkerValue = calculation.PlannedCumulativeUsedPercent;
+        TotalPlanMarkerToolTip = BuildTotalPlanMarkerToolTip(
+            calculation.PlannedCumulativeUsedPercent,
+            calculation.PlannedCumulativeUsedUsd,
+            digits,
+            culture);
         TotalPoolsDetailText = BuildTotalPoolsDetailText(usage, digits, culture);
         TotalProgressLabel = BuildProgressLabel(
             combined.UsedPercent,
@@ -969,6 +1003,8 @@ public class MainViewModel : ViewModelBase, IDisposable
             _ => string.Empty
         };
 
+        ApplyCyclePlanPaceTexts(combined, calculation, digits, culture);
+
         FirstPartyUsedPercentText = PercentageFormatter.Format(
             Math.Min(100, usage.FirstPartyUsedPercent),
             digits,
@@ -1063,6 +1099,63 @@ public class MainViewModel : ViewModelBase, IDisposable
         TodayPoolsDetailText = BuildTodayPoolsDetailText(usage, digits, culture);
 
         NotifyTrayDisplayChanged();
+    }
+
+    private void ApplyCyclePlanPaceTexts(
+        CombinedQuotaDisplay combined,
+        QuotaCalculationResult calculation,
+        int digits,
+        CultureInfo culture)
+    {
+        var cycleDelta = DailyTargetProgressCalculator.CalculateCyclePlanPaceDelta(
+            combined.UsedPercent,
+            calculation.PlannedCumulativeUsedPercent,
+            combined.UsedUsd,
+            calculation.PlannedCumulativeUsedUsd);
+
+        var cycleDeltaUsd = combined.UsedUsd is decimal actualUsd
+            && calculation.PlannedCumulativeUsedUsd is decimal plannedUsd
+            ? DailyTargetProgressCalculator.CalculateDeltaUsdFromValues(actualUsd, plannedUsd)
+            : DailyTargetProgressCalculator.CalculateDeltaUsd(
+                combined.UsedPercent,
+                calculation.PlannedCumulativeUsedPercent,
+                combined.LimitUsd);
+
+        var cycleDeltaText = DailyTargetProgressCalculator.FormatRelativeDeltaWithUsd(
+            cycleDelta.RelativeDeltaPercent,
+            cycleDeltaUsd,
+            digits,
+            culture);
+
+        switch (cycleDelta.Kind)
+        {
+            case DailyPlanDeltaKind.Ahead:
+                CyclePlanPaceText = _localizationService.Format("AheadOfCyclePlanFormat", cycleDeltaText);
+                IsCyclePlanPaceAhead = true;
+                break;
+            case DailyPlanDeltaKind.Behind:
+                CyclePlanPaceText = _localizationService.Format("BehindCyclePlanFormat", cycleDeltaText);
+                IsCyclePlanPaceAhead = false;
+                break;
+            default:
+                CyclePlanPaceText = string.Empty;
+                IsCyclePlanPaceAhead = false;
+                break;
+        }
+    }
+
+    private string BuildTotalPlanMarkerToolTip(
+        double plannedUsedPercent,
+        decimal? plannedUsedUsd,
+        int digits,
+        CultureInfo culture)
+    {
+        if (plannedUsedUsd is null)
+            return string.Empty;
+
+        var percentText = PercentageFormatter.Format(plannedUsedPercent, digits, culture);
+        var usdText = QuotaMonetaryHelper.FormatUsd(plannedUsedUsd.Value, culture);
+        return _localizationService.Format("TotalPlanMarkerToolTipFormat", percentText, usdText);
     }
 
     private string BuildProgressLabel(
@@ -1441,6 +1534,8 @@ public class MainViewModel : ViewModelBase, IDisposable
         var dashPercent = $"{dash}%";
 
         TotalUsedPercentText = dash;
+        TotalPlanMarkerValue = double.NaN;
+        TotalPlanMarkerToolTip = null;
         TotalProgressLabel = $"{dash} / 100";
         TotalSpendText = dash;
         TotalRemainingText = _localizationService.Format("TotalRemainingFormat", dash);
@@ -1456,6 +1551,8 @@ public class MainViewModel : ViewModelBase, IDisposable
         DailyYesterdaySpentText = TotalYesterdaySpentText;
         TodaySpentText = TotalTodaySpentText;
         TodayStatusText = string.Empty;
+        CyclePlanPaceText = string.Empty;
+        IsCyclePlanPaceAhead = false;
         TodayOverageText = string.Empty;
         IsDailyTargetExceeded = false;
         DailyProgressFillPercent = 0;
