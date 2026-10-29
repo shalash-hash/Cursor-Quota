@@ -254,6 +254,11 @@ public class QuotaDiagnosticLogger
         Write($"[{DateTime.Now:HH:mm:ss}] Access token expired, refreshing");
     }
 
+    public void LogCursorAuthTokenDecryptFailed()
+    {
+        Write($"[{DateTime.Now:HH:mm:ss}] Cursor auth token decrypt failed");
+    }
+
     private void Write(string message)
     {
         lock (_sync)

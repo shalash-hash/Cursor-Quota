@@ -399,6 +399,8 @@ public sealed class CursorNetworkRecoveryTests
 
         public void LogAccessTokenExpiredRefreshing() { }
 
+        public void LogCursorAuthTokenDecryptFailed() { }
+
         public void LogHttpTransportReset(string reason) => logger.LogHttpTransportReset(reason);
     }
 

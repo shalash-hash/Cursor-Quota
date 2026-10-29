@@ -51,10 +51,15 @@ public class CursorAuthService
             _stateDatabasePathProvider(),
             cancellationToken);
 
+        if (snapshot.TokenDecryptFailed)
+            _diagnostics.LogCursorAuthTokenDecryptFailed();
+
         if (snapshot.IsEmpty)
         {
             ClearAuthCache();
-            _diagnostics.LogCursorAuthSessionRemoved();
+            if (!snapshot.TokenDecryptFailed)
+                _diagnostics.LogCursorAuthSessionRemoved();
+
             throw new CursorAuthException();
         }
 

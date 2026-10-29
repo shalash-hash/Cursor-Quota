@@ -20,7 +20,12 @@ internal static class CursorAuthStateReader
 
         var accessToken = await ReadValueAsync(connection, AccessTokenKey, cancellationToken);
         var refreshToken = await ReadValueAsync(connection, RefreshTokenKey, cancellationToken);
-        return new CursorAuthSnapshot(accessToken, refreshToken);
+        var decodedAccessToken = CursorAuthTokenCodec.TryDecode(accessToken);
+        var decodedRefreshToken = CursorAuthTokenCodec.TryDecode(refreshToken);
+        var decryptFailed =
+            (CursorAuthTokenCodec.IsEncrypted(accessToken) && decodedAccessToken is null)
+            || (CursorAuthTokenCodec.IsEncrypted(refreshToken) && decodedRefreshToken is null);
+        return new CursorAuthSnapshot(decodedAccessToken, decodedRefreshToken, decryptFailed);
     }
 
     private static async Task<string?> ReadValueAsync(

@@ -32,7 +32,7 @@ At last doc review: **committed and pushed** — reset countdown, network recove
 - **Tray menu:** combined base spend; Models bonus line; API as `$used из $limit — X%`.
 - **Daily plan:** Optimal Phase 1 = adaptive Models spread until 7 billing-days before reset; final 7-day tail = same as Uniform (Models + API).
 - **Plan mode:** Optimal (default, hill + reserve) vs Uniform (linear remaining/days for both pools from day 1); persisted in `UiSettings.quotaPlanMode`; instant recalc on toggle.
-- **Auth:** `CursorAuthService` re-reads `state.vscdb` on every refresh.
+- **Auth:** `CursorAuthService` re-reads `state.vscdb` on every refresh. Cursor may store those values as Electron safeStorage ciphertext (`cursor-safe-storage:v1:` / Windows `v10`); `CursorAuthTokenCodec` decrypts them with the DPAPI-wrapped key from `%APPDATA%\Cursor\Local State`. Do not send the ciphertext to the OAuth refresh endpoint.
 - **Bonus quota (Model C):** `totalSpend` = combined actual; `modelsActual = totalSpend − apiUsed`; combined card base-only; `remainingBonus=false` → Unknown.
 - **History UI:** separate stretchable chart cards.
 
@@ -50,7 +50,7 @@ Key invariants: reset countdown from `billingCycleEnd` ms (Cursor DKf formula); 
 
 - Composition root: `App.xaml.cs` — all services wired manually (no DI container).
 - `MockQuotaUsageProvider` exists for dev/tests; production uses `CursorQuotaUsageProvider`.
-- Tests: `dotnet test Quota.Tests/Quota.Tests.csproj -c Release` (**235** tests).
+- Tests: `dotnet test Quota.Tests/Quota.Tests.csproj -c Release` (**304** tests as of 2026-10-30, Debug run).
 - Release exe: `bin/Release/net10.0-windows/Quota.exe`
 - User often requests: run tests → rebuild Release → stop old Quota → start new exe.
 

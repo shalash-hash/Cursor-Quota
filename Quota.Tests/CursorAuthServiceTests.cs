@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Data.Sqlite;
 using Quota.Services;
@@ -6,6 +7,7 @@ using Xunit;
 
 namespace Quota.Tests;
 
+[Collection("cursor-auth-codec")]
 public sealed class CursorAuthServiceTests : IDisposable
 {
     private readonly string _databasePath;
@@ -31,6 +33,47 @@ public sealed class CursorAuthServiceTests : IDisposable
         Assert.Equal(token, first);
         Assert.Equal(token, second);
         Assert.Empty(_httpRequests);
+    }
+
+    [Fact]
+    public async Task GetAccessToken_SafeStorageEncryptedToken_UsesDecryptedJwtWithoutRefresh()
+    {
+        var key = RandomNumberGenerator.GetBytes(32);
+        var token = TestJwtFactory.CreateValid("enc-a");
+        var stored = CursorAuthTokenCodec.EncryptForTests(token, key);
+        WriteTokens(stored, CursorAuthTokenCodec.EncryptForTests("refresh-a", key));
+        CursorAuthTokenCodec.OsCryptKeyProvider = () => key;
+        try
+        {
+            var service = CreateService();
+            var result = await service.GetAccessTokenAsync();
+
+            Assert.Equal(token, result);
+            Assert.Equal("refresh-a", service.CachedRefreshToken);
+            Assert.Empty(_httpRequests);
+            Assert.DoesNotContain(_diagnostics.Messages, m => m.Contains("decrypt", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            CursorAuthTokenCodec.OsCryptKeyProvider = null;
+        }
+    }
+
+    [Fact]
+    public async Task GetAccessToken_UndecryptableSafeStorageToken_DoesNotSendCiphertextAsRefresh()
+    {
+        WriteTokens("cursor-safe-storage:v1:%%%", "cursor-safe-storage:v1:%%%");
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<CursorAuthException>(() => service.GetAccessTokenAsync());
+
+        Assert.Empty(_httpRequests);
+        Assert.Contains(
+            _diagnostics.Messages,
+            m => m.Contains("decrypt failed", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(
+            _diagnostics.Messages,
+            m => m.Contains("refreshing", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -220,6 +263,8 @@ public sealed class CursorAuthServiceTests : IDisposable
         public void LogCursorAuthSessionRemoved() => Messages.Add("Cursor auth session removed");
 
         public void LogAccessTokenExpiredRefreshing() => Messages.Add("Access token expired, refreshing");
+
+        public void LogCursorAuthTokenDecryptFailed() => Messages.Add("Cursor auth token decrypt failed");
 
         public void LogHttpTransportReset(string reason) => Messages.Add($"HTTP_TRANSPORT_RESET reason={reason}");
     }

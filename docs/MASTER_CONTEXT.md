@@ -172,7 +172,8 @@ App.xaml.cs (composition root)
 
 - **Источник истины для авторизации:** `state.vscdb` Cursor IDE (не процесс IDE).
 - При каждом refresh перечитывать токены из `state.vscdb`; не использовать устаревший in-memory JWT после logout в IDE.
-- **Не логировать** access token, refresh token, полные JWT.
+- Значения `cursorAuth/accessToken` и `cursorAuth/refreshToken` могут быть plaintext либо ciphertext Electron safeStorage: префикс `cursor-safe-storage:v1:`, внутри Windows-формат `v10` (AES-GCM). Ключ — `os_crypt.encrypted_key` из `%APPDATA%\Cursor\Local State`, обёрнут DPAPI. Quota расшифровывает их только в памяти. Флаг `cursor.storage.authTokenEncryptionAtRest=true` включает эту запись на стороне Cursor.
+- **Не логировать** access token, refresh token, полные JWT, ciphertext и ключ Local State.
 - OAuth refresh — только когда access истёк и refresh есть в актуальном `state.vscdb`.
 - Private GitHub repo **не** разрешает коммитить secrets.
 
@@ -183,7 +184,7 @@ App.xaml.cs (composition root)
 - Проект: `Quota.Tests` (xUnit).
 - Покрытие: калькуляторы, monetary helpers, auth sync, history, localization, mappers, network recovery, reset countdown, tray formatter.
 - Запуск: `dotnet test Quota.Tests/Quota.Tests.csproj -c Release`
-- **235 tests** (Release, 2026-09-05).
+- **304 tests** (Debug, 2026-10-30).
 - `InternalsVisibleTo` для тестов auth internals.
 
 ---

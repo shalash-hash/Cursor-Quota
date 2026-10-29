@@ -6,6 +6,19 @@
 
 ---
 
+## 2026-10-30 — Decrypt Cursor safeStorage auth tokens
+
+| Field | Value |
+|-------|-------|
+| **Decision** | Токены в `state.vscdb` с префиксом `cursor-safe-storage:v1:` расшифровываются локально (Windows `v10` AES-GCM, ключ из `Local State` через DPAPI) до проверки срока и до OAuth refresh. Нерасшифрованный ciphertext не отправляется как refresh token. Plaintext-токены читаются как раньше. |
+| **Supersedes** | Чтение `cursorAuth/accessToken` и `cursorAuth/refreshToken` как готового JWT/opaque token |
+| **Reason** | Cursor 3.x включает `authTokenEncryptionAtRest` и пишет ciphertext. Quota принимала его за просроченный токен и показывала «войдите в аккаунт», хотя сессия в IDE жива |
+| **Affected docs** | MASTER_CONTEXT § Security |
+| **Affected code** | `CursorAuthTokenCodec`, `CursorAuthStateReader`, `CursorAuthService` |
+| **Status** | Active |
+
+---
+
 ## 2026-09-30 — API included in daily plan from cycle start
 
 | Field | Value |

@@ -35,7 +35,7 @@
 | **Network recovery (HTTP 403)** | `MASTER_CONTEXT.md` § Network recovery | `Services/CursorNetworkRecoveryService.cs`, `Services/CursorHttpTransport.cs`, `Services/CursorHttpRetry.cs` |
 | **Refresh failure UX** | `MASTER_CONTEXT.md` § Refresh failure diagnostics | `Services/CursorRefreshFailureDescriber.cs`, `ViewModels/MainViewModel.cs` |
 | **Tray display** | `MASTER_CONTEXT.md` § Tray menu | `Helpers/TrayDisplayFormatter.cs`, `Services/TrayIconService.cs` |
-| **Auth (Cursor IDE tokens)** | `MASTER_CONTEXT.md` § Security | `Services/CursorAuthService.cs`, `Services/CursorAuthStateReader.cs` |
+| **Auth (Cursor IDE tokens)** | `MASTER_CONTEXT.md` § Security | `Services/CursorAuthService.cs`, `Services/CursorAuthStateReader.cs`, `Services/CursorAuthTokenCodec.cs` |
 | **Quota & daily plan math** | `DECISIONS_CHANGELOG.md` (2026-09-28 reset-based 7-day tail), `MASTER_CONTEXT.md` § Domain | `Services/QuotaCalculator.cs`, `Services/DailyPlanCalculator.cs`, `Helpers/DailyTargetProgressCalculator.cs` |
 | **Usage history & charts** | `MASTER_CONTEXT.md` § Features | `Services/UsageHistoryService.cs`, `Services/QuotaSnapshotRepository.cs`, `Controls/UsageHistoryChart.*` |
 | **Local persistence** | `MASTER_CONTEXT.md` § Persistence | `Services/QuotaSnapshotRepository.cs`, `Services/UiSettingsService.cs`, `Models/QuotaSnapshot.cs` |
